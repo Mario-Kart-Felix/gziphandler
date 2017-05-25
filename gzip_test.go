@@ -313,6 +313,56 @@ func TestInferContentTypeUncompressed(t *testing.T) {
 	}
 }
 
+func TestResponseWriterTypes(t *testing.T) {
+	var cok, hok, pok bool
+
+	handler := Gzip(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, cok = w.(http.CloseNotifier)
+		_, hok = w.(http.Hijacker)
+		_, pok = w.(http.Pusher)
+	}))
+
+	req1, _ := http.NewRequest("GET", "/whatever", nil)
+	req1.Header.Add("Accept-Encoding", "gzip")
+
+	resp1 := httptest.NewRecorder()
+
+	handler.ServeHTTP(resp1, req1)
+	assert.True(t, !cok && !hok && !pok, "expected plain ResponseWriter")
+
+	handler.ServeHTTP(struct {
+		http.ResponseWriter
+		http.CloseNotifier
+	}{resp1, nil}, req1)
+	assert.True(t, cok && !hok && !pok, "expected CloseNotifier")
+
+	handler.ServeHTTP(struct {
+		http.ResponseWriter
+		http.Hijacker
+	}{resp1, nil}, req1)
+	assert.True(t, !cok && hok && !pok, "expected Hijacker")
+
+	handler.ServeHTTP(struct {
+		http.ResponseWriter
+		http.Pusher
+	}{resp1, nil}, req1)
+	assert.True(t, !cok && !hok && pok, "expected Pusher")
+
+	handler.ServeHTTP(struct {
+		http.ResponseWriter
+		http.CloseNotifier
+		http.Hijacker
+	}{resp1, nil, nil}, req1)
+	assert.True(t, cok && hok && !pok, "expected CloseNotifier and Hijacker")
+
+	handler.ServeHTTP(struct {
+		http.ResponseWriter
+		http.CloseNotifier
+		http.Pusher
+	}{resp1, nil, nil}, req1)
+	assert.True(t, cok && !hok && pok, "expected CloseNotifier and Pusher")
+}
+
 // --------------------------------------------------------------------
 
 func BenchmarkGzipHandler_S2k(b *testing.B)   { benchmark(b, false, 2048) }
