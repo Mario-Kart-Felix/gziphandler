@@ -1,7 +1,9 @@
 package gziphandler
 
 import (
+	"bufio"
 	"compress/gzip"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -237,21 +239,21 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	var rw http.ResponseWriter = gw
 
-	c, cok := w.(http.CloseNotifier)
-	hj, hok := w.(http.Hijacker)
-	p, pok := w.(http.Pusher)
+	_, cok := w.(http.CloseNotifier)
+	_, hok := w.(http.Hijacker)
+	_, pok := w.(http.Pusher)
 
 	switch {
 	case cok && hok:
-		rw = &closeNotifyHijackResponseWriter{gw, c, hj}
+		rw = closeNotifyHijackResponseWriter{gw}
 	case cok && pok:
-		rw = &closeNotifyPusherResponseWriter{gw, c, p}
+		rw = closeNotifyPusherResponseWriter{gw}
 	case cok:
-		rw = &closeNotifyResponseWriter{gw, c}
+		rw = closeNotifyResponseWriter{gw}
 	case hok:
-		rw = &hijackResponseWriter{gw, hj}
+		rw = hijackResponseWriter{gw}
 	case pok:
-		rw = &pusherResponseWriter{gw, p}
+		rw = pusherResponseWriter{gw}
 	}
 
 	h.Handler.ServeHTTP(rw, r)
@@ -341,34 +343,50 @@ type Options struct {
 	MinSize int
 }
 
-type responseWriterFlusher interface {
-	http.ResponseWriter
-	http.Flusher
+type (
+	// Each of these structs is intentionally small (1 pointer wide) so
+	// as to fit inside an interface{} without causing an allocaction.
+	closeNotifyResponseWriter       struct{ *responseWriter }
+	hijackResponseWriter            struct{ *responseWriter }
+	pusherResponseWriter            struct{ *responseWriter }
+	closeNotifyHijackResponseWriter struct{ *responseWriter }
+	closeNotifyPusherResponseWriter struct{ *responseWriter }
+)
+
+var (
+	_ http.CloseNotifier = closeNotifyResponseWriter{}
+	_ http.CloseNotifier = closeNotifyHijackResponseWriter{}
+	_ http.CloseNotifier = closeNotifyPusherResponseWriter{}
+	_ http.Hijacker      = hijackResponseWriter{}
+	_ http.Hijacker      = closeNotifyHijackResponseWriter{}
+	_ http.Pusher        = pusherResponseWriter{}
+	_ http.Pusher        = closeNotifyPusherResponseWriter{}
+)
+
+func (w closeNotifyResponseWriter) CloseNotify() <-chan bool {
+	return w.ResponseWriter.(http.CloseNotifier).CloseNotify()
 }
 
-type closeNotifyResponseWriter struct {
-	responseWriterFlusher
-	http.CloseNotifier
+func (w closeNotifyHijackResponseWriter) CloseNotify() <-chan bool {
+	return w.ResponseWriter.(http.CloseNotifier).CloseNotify()
 }
 
-type hijackResponseWriter struct {
-	responseWriterFlusher
-	http.Hijacker
+func (w closeNotifyPusherResponseWriter) CloseNotify() <-chan bool {
+	return w.ResponseWriter.(http.CloseNotifier).CloseNotify()
 }
 
-type pusherResponseWriter struct {
-	responseWriterFlusher
-	http.Pusher
+func (w hijackResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	return w.ResponseWriter.(http.Hijacker).Hijack()
 }
 
-type closeNotifyHijackResponseWriter struct {
-	responseWriterFlusher
-	http.CloseNotifier
-	http.Hijacker
+func (w closeNotifyHijackResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	return w.ResponseWriter.(http.Hijacker).Hijack()
 }
 
-type closeNotifyPusherResponseWriter struct {
-	responseWriterFlusher
-	http.CloseNotifier
-	http.Pusher
+func (w pusherResponseWriter) Push(target string, opts *http.PushOptions) error {
+	return w.ResponseWriter.(http.Pusher).Push(target, opts)
+}
+
+func (w closeNotifyPusherResponseWriter) Push(target string, opts *http.PushOptions) error {
+	return w.ResponseWriter.(http.Pusher).Push(target, opts)
 }
