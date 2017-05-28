@@ -272,6 +272,26 @@ func TestStatusCodes(t *testing.T) {
 	if result.StatusCode != 404 {
 		t.Errorf("StatusCode should have been 404 but was %d", result.StatusCode)
 	}
+
+	handler = Gzip(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.NotFound(w, r)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	w = httptest.NewRecorder()
+	handler.ServeHTTP(w, r)
+
+	result = w.Result()
+	if result.StatusCode != 404 {
+		t.Errorf("StatusCode should have been 404 but was %d", result.StatusCode)
+	}
+
+	handler = Gzip(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	w = httptest.NewRecorder()
+	handler.ServeHTTP(w, r)
+
+	if w.Code != 200 {
+		t.Errorf("StatusCode should have been 200 but was %d", w.Code)
+	}
 }
 
 func TestInferContentType(t *testing.T) {

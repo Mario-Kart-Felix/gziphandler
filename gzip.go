@@ -54,7 +54,9 @@ type responseWriter struct {
 // WriteHeader just saves the response code until close or
 // GZIP effective writes.
 func (w *responseWriter) WriteHeader(code int) {
-	w.code = code
+	if w.code == 0 {
+		w.code = code
+	}
 }
 
 // Write appends data to the gzip writer.
@@ -63,6 +65,10 @@ func (w *responseWriter) Write(b []byte) (int, error) {
 	// responseWriter.
 	if w.gw != nil {
 		return w.gw.Write(b)
+	}
+
+	if w.code == 0 {
+		w.code = http.StatusOK
 	}
 
 	// If the global writes are bigger than the minSize,
@@ -158,6 +164,10 @@ func (w *responseWriter) Close() error {
 			w.inferContentType(nil)
 		}
 
+		if w.code == 0 {
+			w.code = http.StatusOK
+		}
+
 		w.ResponseWriter.WriteHeader(w.code)
 
 		// Make the write into the regular response.
@@ -232,8 +242,6 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ResponseWriter: w,
 
 		h: h,
-
-		code: http.StatusOK,
 
 		buf: bufferPool.Get().(*[]byte),
 	}
