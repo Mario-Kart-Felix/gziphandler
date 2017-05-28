@@ -152,11 +152,13 @@ func (w *responseWriter) Close() error {
 	// Buffer not nil means the regular response must
 	// be returned.
 	if w.buf != nil {
-		w.inferContentType(nil)
+		buf := *w.buf
+
+		if len(buf) != 0 {
+			w.inferContentType(nil)
+		}
 
 		w.ResponseWriter.WriteHeader(w.code)
-
-		buf := *w.buf
 
 		// Make the write into the regular response.
 		_, err := w.ResponseWriter.Write(buf)
