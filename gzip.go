@@ -306,8 +306,7 @@ func GzipWithOptions(h http.Handler, opts *Options) http.Handler {
 		panic("GzipWithOptions used with nil *Options argument")
 	}
 
-	if opts.Level != gzip.DefaultCompression &&
-		(opts.Level < gzip.BestSpeed || opts.Level > gzip.BestCompression) {
+	if opts.Level < gzip.HuffmanOnly || opts.Level > gzip.BestCompression {
 		panic("invalid compression level requested")
 	}
 
