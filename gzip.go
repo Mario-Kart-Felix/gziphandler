@@ -171,7 +171,10 @@ func (w *responseWriter) Close() error {
 		w.ResponseWriter.WriteHeader(w.code)
 
 		// Make the write into the regular response.
-		_, err := w.ResponseWriter.Write(buf)
+		var err error
+		if len(buf) != 0 {
+			_, err = w.ResponseWriter.Write(buf)
+		}
 
 		*w.buf = buf[:0]
 		bufferPool.Put(w.buf)
