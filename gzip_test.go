@@ -138,15 +138,10 @@ func TestGzipHandlerNoBody(t *testing.T) {
 		req.Header.Set("Accept-Encoding", "gzip")
 		handler.ServeHTTP(rec, req)
 
-		body, err := ioutil.ReadAll(rec.Body)
-		if err != nil {
-			t.Fatalf("Unexpected error reading response body: %v", err)
-		}
-
 		header := rec.Header()
 		assert.Equal(t, test.contentEncoding, header.Get("Content-Encoding"), fmt.Sprintf("for test iteration %d", num))
 		assert.Equal(t, "Accept-Encoding", header.Get("Vary"), fmt.Sprintf("for test iteration %d", num))
-		assert.Equal(t, test.bodyLen, len(body), fmt.Sprintf("for test iteration %d", num))
+		assert.Equal(t, test.bodyLen, rec.Body.Len(), fmt.Sprintf("for test iteration %d", num))
 	}
 }
 
@@ -307,14 +302,9 @@ func TestFlushBeforeWrite(t *testing.T) {
 	handler.ServeHTTP(w, r)
 
 	res := w.Result()
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		t.Fatalf("Unexpected error reading response body: %v", err)
-	}
-
 	assert.Equal(t, http.StatusNotFound, res.StatusCode)
 	assert.Equal(t, "gzip", res.Header.Get("Content-Encoding"))
-	assert.NotEqual(t, b, body)
+	assert.NotEqual(t, b, w.Body.Bytes())
 }
 
 func TestInferContentType(t *testing.T) {
