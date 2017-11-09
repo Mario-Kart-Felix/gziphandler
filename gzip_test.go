@@ -294,6 +294,25 @@ func TestStatusCodes(t *testing.T) {
 	}
 }
 
+func TestStatusCodesFlushed(t *testing.T) {
+	// This is the test case taken from NYTimes/gziphandler#58
+
+	handler := Gzip(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		rw.WriteHeader(http.StatusNotFound)
+		rw.(http.Flusher).Flush()
+		rw.Write([]byte("Not found"))
+	}))
+	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r.Header.Set("Accept-Encoding", "gzip")
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, r)
+
+	result := w.Result()
+	if result.StatusCode != http.StatusNotFound {
+		t.Errorf("StatusCode should have been 404 but was %d", result.StatusCode)
+	}
+}
+
 func TestInferContentType(t *testing.T) {
 	handler := GzipWithLevelAndMinSize(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, "<!doc")
