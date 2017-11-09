@@ -210,11 +210,7 @@ func TestGzipHandlerMinSize(t *testing.T) {
 	resp1 := httptest.NewRecorder()
 	handler.ServeHTTP(resp1, req1)
 	res1 := resp1.Result()
-
-	if res1.Header.Get("Content-Encoding") == "gzip" {
-		t.Errorf("The response is compress and should not")
-		return
-	}
+	assert.Equal(t, "", res1.Header.Get("Content-Encoding"))
 
 	// Run a test with size bigger than the limit
 	b = bytes.NewBufferString(smallTestBody)
@@ -224,11 +220,7 @@ func TestGzipHandlerMinSize(t *testing.T) {
 	resp2 := httptest.NewRecorder()
 	handler.ServeHTTP(resp2, req2)
 	res2 := resp2.Result()
-
-	if res2.Header.Get("Content-Encoding") != "gzip" {
-		t.Errorf("The response is not compress and should")
-		return
-	}
+	assert.Equal(t, "gzip", res2.Header.Get("Content-Encoding"))
 
 	assert.Panics(t, func() {
 		GzipWithLevelAndMinSize(nil, gzip.DefaultCompression, -10)
@@ -264,9 +256,7 @@ func TestStatusCodes(t *testing.T) {
 	handler.ServeHTTP(w, r)
 
 	result := w.Result()
-	if result.StatusCode != 404 {
-		t.Errorf("StatusCode should have been 404 but was %d", result.StatusCode)
-	}
+	assert.Equal(t, 404, result.StatusCode)
 
 	handler = Gzip(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
@@ -276,17 +266,14 @@ func TestStatusCodes(t *testing.T) {
 	handler.ServeHTTP(w, r)
 
 	result = w.Result()
-	if result.StatusCode != 404 {
-		t.Errorf("StatusCode should have been 404 but was %d", result.StatusCode)
-	}
+	assert.Equal(t, 404, result.StatusCode)
 
 	handler = Gzip(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	w = httptest.NewRecorder()
 	handler.ServeHTTP(w, r)
 
-	if w.Code != 200 {
-		t.Errorf("StatusCode should have been 200 but was %d", w.Code)
-	}
+	result = w.Result()
+	assert.Equal(t, 200, result.StatusCode)
 }
 
 func TestFlushBeforeWrite(t *testing.T) {
@@ -317,14 +304,9 @@ func TestInferContentType(t *testing.T) {
 	req1.Header.Add("Accept-Encoding", "gzip")
 	resp1 := httptest.NewRecorder()
 	handler.ServeHTTP(resp1, req1)
-	res1 := resp1.Result()
 
-	const expect = "text/html; charset=utf-8"
-	if ct := res1.Header.Get("Content-Type"); ct != expect {
-		t.Error("Infering Content-Type failed for buffered response")
-		t.Logf("Expected: %s", expect)
-		t.Logf("Got:      %s", ct)
-	}
+	res1 := resp1.Result()
+	assert.Equal(t, "text/html; charset=utf-8", res1.Header.Get("Content-Type"))
 }
 
 func TestInferContentTypeUncompressed(t *testing.T) {
@@ -336,14 +318,9 @@ func TestInferContentTypeUncompressed(t *testing.T) {
 	req1.Header.Add("Accept-Encoding", "gzip")
 	resp1 := httptest.NewRecorder()
 	handler.ServeHTTP(resp1, req1)
-	res1 := resp1.Result()
 
-	const expect = "text/html; charset=utf-8"
-	if ct := res1.Header.Get("Content-Type"); ct != expect {
-		t.Error("Infering Content-Type failed for uncompressed response")
-		t.Logf("Expected: %s", expect)
-		t.Logf("Got:      %s", ct)
-	}
+	res1 := resp1.Result()
+	assert.Equal(t, "text/html; charset=utf-8", res1.Header.Get("Content-Type"))
 }
 
 func TestResponseWriterTypes(t *testing.T) {
