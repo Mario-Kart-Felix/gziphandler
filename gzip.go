@@ -203,9 +203,17 @@ func (w *responseWriter) Close() error {
 // underlying http.ResponseWriter if it is an http.Flusher.
 // This makes GzipResponseWriter an http.Flusher.
 func (w *responseWriter) Flush() {
-	if w.gw != nil {
-		w.gw.Flush()
+	if w.gw == nil {
+		// Fix for NYTimes/gziphandler#58:
+		//  Only flush once startGzip has been
+		//  called.
+		//
+		// Flush is thus a no-op until the written
+		// body exceeds minSize.
+		return
 	}
+
+	w.gw.Flush()
 
 	if fw, ok := w.ResponseWriter.(http.Flusher); ok {
 		fw.Flush()
