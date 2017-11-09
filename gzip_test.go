@@ -96,7 +96,7 @@ func TestGzipLevelHandler(t *testing.T) {
 	}
 }
 
-func TestGzipHandlerWithLevelReturnsErrorForInvalidLevels(t *testing.T) {
+func TestGzipWithLevelPanicsForInvalidLevels(t *testing.T) {
 	assert.Panics(t, func() {
 		GzipWithLevel(nil, -42)
 	}, "GzipWithLevel did not panic on invalid level")
