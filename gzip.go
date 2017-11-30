@@ -91,7 +91,7 @@ func (w *responseWriter) Write(b []byte) (int, error) {
 }
 
 // startGzip initialize any GZIP specific informations.
-func (w *responseWriter) startGzip() error {
+func (w *responseWriter) startGzip() (err error) {
 	h := w.Header()
 
 	// Set the GZIP header.
@@ -114,7 +114,6 @@ func (w *responseWriter) startGzip() error {
 
 	buf := *w.buf
 
-	var err error
 	if len(buf) != 0 {
 		// Flush the buffer into the gzip response.
 		_, err = w.gw.Write(buf)
@@ -145,6 +144,10 @@ func (w *responseWriter) inferContentType(b []byte) {
 		} else {
 			b = append(buf, b...)
 		}
+	}
+
+	if len(b) == 0 {
+		return
 	}
 
 	// It infer it from the uncompressed body.
@@ -179,12 +182,8 @@ func (w *responseWriter) closeGzipped() error {
 	return err
 }
 
-func (w *responseWriter) closeNonGzipped() error {
-	buf := *w.buf
-
-	if len(buf) != 0 {
-		w.inferContentType(nil)
-	}
+func (w *responseWriter) closeNonGzipped() (err error) {
+	w.inferContentType(nil)
 
 	if w.code == 0 {
 		w.code = http.StatusOK
@@ -193,7 +192,7 @@ func (w *responseWriter) closeNonGzipped() error {
 	w.ResponseWriter.WriteHeader(w.code)
 
 	// Make the write into the regular response.
-	var err error
+	buf := *w.buf
 	if len(buf) != 0 {
 		_, err = w.ResponseWriter.Write(buf)
 	}
