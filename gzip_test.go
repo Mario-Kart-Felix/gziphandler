@@ -27,7 +27,7 @@ func TestGzipHandler(t *testing.T) {
 
 	// requests without accept-encoding are passed along as-is
 
-	req1, _ := http.NewRequest("GET", "/whatever", nil)
+	req1 := httptest.NewRequest("GET", "/whatever", nil)
 	resp1 := httptest.NewRecorder()
 	handler.ServeHTTP(resp1, req1)
 	res1 := resp1.Result()
@@ -39,7 +39,7 @@ func TestGzipHandler(t *testing.T) {
 
 	// but requests with accept-encoding:gzip are compressed if possible
 
-	req2, _ := http.NewRequest("GET", "/whatever", nil)
+	req2 := httptest.NewRequest("GET", "/whatever", nil)
 	req2.Header.Set("Accept-Encoding", "gzip")
 	resp2 := httptest.NewRecorder()
 	handler.ServeHTTP(resp2, req2)
@@ -52,7 +52,7 @@ func TestGzipHandler(t *testing.T) {
 
 	// content-type header is correctly set based on uncompressed body
 
-	req3, _ := http.NewRequest("GET", "/whatever", nil)
+	req3 := httptest.NewRequest("GET", "/whatever", nil)
 	req3.Header.Set("Accept-Encoding", "gzip")
 	res3 := httptest.NewRecorder()
 	handler.ServeHTTP(res3, req3)
@@ -67,7 +67,7 @@ func TestGzipLevelHandler(t *testing.T) {
 	})
 
 	for lvl := gzip.BestSpeed; lvl <= gzip.BestCompression; lvl++ {
-		req, _ := http.NewRequest("GET", "/whatever", nil)
+		req := httptest.NewRequest("GET", "/whatever", nil)
 		req.Header.Set("Accept-Encoding", "gzip")
 		resp := httptest.NewRecorder()
 		Gzip(handler, CompressionLevel(lvl)).ServeHTTP(resp, req)
@@ -109,16 +109,7 @@ func TestGzipHandlerNoBody(t *testing.T) {
 		}))
 
 		rec := httptest.NewRecorder()
-		// TODO: in Go1.7 httptest.NewRequest was introduced this should be used
-		// once 1.6 is not longer supported.
-		req := &http.Request{
-			Method:     "GET",
-			URL:        &url.URL{Path: "/"},
-			Proto:      "HTTP/1.1",
-			ProtoMinor: 1,
-			RemoteAddr: "192.0.2.1:1234",
-			Header:     make(http.Header),
-		}
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		req.Header.Set("Accept-Encoding", "gzip")
 		handler.ServeHTTP(rec, req)
 
@@ -189,7 +180,7 @@ func TestGzipHandlerMinSize(t *testing.T) {
 	// Run a test with size smaller than the limit
 	b := bytes.NewBufferString("test")
 
-	req1, _ := http.NewRequest("GET", "/whatever", b)
+	req1 := httptest.NewRequest("GET", "/whatever", b)
 	req1.Header.Add("Accept-Encoding", "gzip")
 	resp1 := httptest.NewRecorder()
 	handler.ServeHTTP(resp1, req1)
@@ -199,7 +190,7 @@ func TestGzipHandlerMinSize(t *testing.T) {
 	// Run a test with size bigger than the limit
 	b = bytes.NewBufferString(smallTestBody)
 
-	req2, _ := http.NewRequest("GET", "/whatever", b)
+	req2 := httptest.NewRequest("GET", "/whatever", b)
 	req2.Header.Add("Accept-Encoding", "gzip")
 	resp2 := httptest.NewRecorder()
 	handler.ServeHTTP(resp2, req2)
@@ -286,7 +277,7 @@ func TestInferContentType(t *testing.T) {
 		io.WriteString(w, "type html>")
 	}), MinSize(len("<!doctype html")))
 
-	req1, _ := http.NewRequest("GET", "/whatever", nil)
+	req1 := httptest.NewRequest("GET", "/whatever", nil)
 	req1.Header.Add("Accept-Encoding", "gzip")
 	resp1 := httptest.NewRecorder()
 	handler.ServeHTTP(resp1, req1)
@@ -300,7 +291,7 @@ func TestInferContentTypeUncompressed(t *testing.T) {
 		io.WriteString(w, "<!doctype html>")
 	}))
 
-	req1, _ := http.NewRequest("GET", "/whatever", nil)
+	req1 := httptest.NewRequest("GET", "/whatever", nil)
 	req1.Header.Add("Accept-Encoding", "gzip")
 	resp1 := httptest.NewRecorder()
 	handler.ServeHTTP(resp1, req1)
@@ -318,7 +309,7 @@ func TestResponseWriterTypes(t *testing.T) {
 		_, pok = w.(http.Pusher)
 	}))
 
-	req1, _ := http.NewRequest("GET", "/whatever", nil)
+	req1 := httptest.NewRequest("GET", "/whatever", nil)
 	req1.Header.Add("Accept-Encoding", "gzip")
 
 	resp1 := httptest.NewRecorder()
@@ -384,7 +375,7 @@ func benchmark(b *testing.B, parallel bool, size int) {
 		b.Fatal(err)
 	}
 
-	req, _ := http.NewRequest("GET", "/whatever", nil)
+	req := httptest.NewRequest("GET", "/whatever", nil)
 	req.Header.Set("Accept-Encoding", "gzip")
 	handler := newTestHandler(string(bin[:size]))
 
