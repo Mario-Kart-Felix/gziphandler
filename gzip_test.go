@@ -120,6 +120,10 @@ func TestGzipHandlerNoBody(t *testing.T) {
 }
 
 func TestGzipHandlerContentLength(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test: no external network in -short mode")
+	}
+
 	b := []byte(testBody)
 	handler := Gzip(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Length", strconv.Itoa(len(b)))
