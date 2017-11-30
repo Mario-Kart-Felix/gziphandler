@@ -62,7 +62,6 @@ func TestGzipHandler(t *testing.T) {
 
 func TestGzipLevelHandler(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
 		io.WriteString(w, testBody)
 	})
 
