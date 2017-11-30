@@ -27,32 +27,32 @@ func TestGzipHandler(t *testing.T) {
 
 	// requests without accept-encoding are passed along as-is
 
-	req1 := httptest.NewRequest("GET", "/whatever", nil)
+	req1 := httptest.NewRequest(http.MethodGet, "/whatever", nil)
 	resp1 := httptest.NewRecorder()
 	handler.ServeHTTP(resp1, req1)
 	res1 := resp1.Result()
 
-	assert.Equal(t, 200, res1.StatusCode)
+	assert.Equal(t, http.StatusOK, res1.StatusCode)
 	assert.Equal(t, "", res1.Header.Get("Content-Encoding"))
 	assert.Equal(t, "Accept-Encoding", res1.Header.Get("Vary"))
 	assert.Equal(t, testBody, resp1.Body.String())
 
 	// but requests with accept-encoding:gzip are compressed if possible
 
-	req2 := httptest.NewRequest("GET", "/whatever", nil)
+	req2 := httptest.NewRequest(http.MethodGet, "/whatever", nil)
 	req2.Header.Set("Accept-Encoding", "gzip")
 	resp2 := httptest.NewRecorder()
 	handler.ServeHTTP(resp2, req2)
 	res2 := resp2.Result()
 
-	assert.Equal(t, 200, res2.StatusCode)
+	assert.Equal(t, http.StatusOK, res2.StatusCode)
 	assert.Equal(t, "gzip", res2.Header.Get("Content-Encoding"))
 	assert.Equal(t, "Accept-Encoding", res2.Header.Get("Vary"))
 	assert.Equal(t, gzipStrLevel(testBody, gzip.DefaultCompression), resp2.Body.Bytes())
 
 	// content-type header is correctly set based on uncompressed body
 
-	req3 := httptest.NewRequest("GET", "/whatever", nil)
+	req3 := httptest.NewRequest(http.MethodGet, "/whatever", nil)
 	req3.Header.Set("Accept-Encoding", "gzip")
 	res3 := httptest.NewRecorder()
 	handler.ServeHTTP(res3, req3)
@@ -67,13 +67,13 @@ func TestGzipLevelHandler(t *testing.T) {
 	})
 
 	for lvl := gzip.BestSpeed; lvl <= gzip.BestCompression; lvl++ {
-		req := httptest.NewRequest("GET", "/whatever", nil)
+		req := httptest.NewRequest(http.MethodGet, "/whatever", nil)
 		req.Header.Set("Accept-Encoding", "gzip")
 		resp := httptest.NewRecorder()
 		Gzip(handler, CompressionLevel(lvl)).ServeHTTP(resp, req)
 		res := resp.Result()
 
-		assert.Equal(t, 200, res.StatusCode)
+		assert.Equal(t, http.StatusOK, res.StatusCode)
 		assert.Equal(t, "gzip", res.Header.Get("Content-Encoding"))
 		assert.Equal(t, "Accept-Encoding", res.Header.Get("Vary"))
 		assert.Equal(t, gzipStrLevel(testBody, lvl), resp.Body.Bytes())
@@ -140,7 +140,7 @@ func TestGzipHandlerContentLength(t *testing.T) {
 	go srv.Serve(ln)
 
 	req := &http.Request{
-		Method: "GET",
+		Method: http.MethodGet,
 		URL:    &url.URL{Path: "/", Scheme: "http", Host: ln.Addr().String()},
 		Header: make(http.Header),
 		Close:  true,
@@ -180,7 +180,7 @@ func TestGzipHandlerMinSize(t *testing.T) {
 	// Run a test with size smaller than the limit
 	b := bytes.NewBufferString("test")
 
-	req1 := httptest.NewRequest("GET", "/whatever", b)
+	req1 := httptest.NewRequest(http.MethodGet, "/whatever", b)
 	req1.Header.Add("Accept-Encoding", "gzip")
 	resp1 := httptest.NewRecorder()
 	handler.ServeHTTP(resp1, req1)
@@ -190,7 +190,7 @@ func TestGzipHandlerMinSize(t *testing.T) {
 	// Run a test with size bigger than the limit
 	b = bytes.NewBufferString(smallTestBody)
 
-	req2 := httptest.NewRequest("GET", "/whatever", b)
+	req2 := httptest.NewRequest(http.MethodGet, "/whatever", b)
 	req2.Header.Add("Accept-Encoding", "gzip")
 	resp2 := httptest.NewRecorder()
 	handler.ServeHTTP(resp2, req2)
@@ -212,7 +212,7 @@ func TestGzipDoubleClose(t *testing.T) {
 		w.(io.Closer).Close()
 	}))
 
-	r := httptest.NewRequest("GET", "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", nil)
 	r.Header.Set("Accept-Encoding", "gzip")
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, r)
@@ -227,13 +227,13 @@ func TestGzipDoubleClose(t *testing.T) {
 
 func TestStatusCodes(t *testing.T) {
 	handler := Gzip(http.NotFoundHandler())
-	r := httptest.NewRequest("GET", "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", nil)
 	r.Header.Set("Accept-Encoding", "gzip")
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, r)
 
 	result := w.Result()
-	assert.Equal(t, 404, result.StatusCode)
+	assert.Equal(t, http.StatusNotFound, result.StatusCode)
 
 	handler = Gzip(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
@@ -243,14 +243,14 @@ func TestStatusCodes(t *testing.T) {
 	handler.ServeHTTP(w, r)
 
 	result = w.Result()
-	assert.Equal(t, 404, result.StatusCode)
+	assert.Equal(t, http.StatusNotFound, result.StatusCode)
 
 	handler = Gzip(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	w = httptest.NewRecorder()
 	handler.ServeHTTP(w, r)
 
 	result = w.Result()
-	assert.Equal(t, 200, result.StatusCode)
+	assert.Equal(t, http.StatusOK, result.StatusCode)
 }
 
 func TestFlushBeforeWrite(t *testing.T) {
@@ -277,7 +277,7 @@ func TestInferContentType(t *testing.T) {
 		io.WriteString(w, "type html>")
 	}), MinSize(len("<!doctype html")))
 
-	req1 := httptest.NewRequest("GET", "/whatever", nil)
+	req1 := httptest.NewRequest(http.MethodGet, "/whatever", nil)
 	req1.Header.Add("Accept-Encoding", "gzip")
 	resp1 := httptest.NewRecorder()
 	handler.ServeHTTP(resp1, req1)
@@ -291,7 +291,7 @@ func TestInferContentTypeUncompressed(t *testing.T) {
 		io.WriteString(w, "<!doctype html>")
 	}))
 
-	req1 := httptest.NewRequest("GET", "/whatever", nil)
+	req1 := httptest.NewRequest(http.MethodGet, "/whatever", nil)
 	req1.Header.Add("Accept-Encoding", "gzip")
 	resp1 := httptest.NewRecorder()
 	handler.ServeHTTP(resp1, req1)
@@ -309,7 +309,7 @@ func TestResponseWriterTypes(t *testing.T) {
 		_, pok = w.(http.Pusher)
 	}))
 
-	req1 := httptest.NewRequest("GET", "/whatever", nil)
+	req1 := httptest.NewRequest(http.MethodGet, "/whatever", nil)
 	req1.Header.Add("Accept-Encoding", "gzip")
 
 	resp1 := httptest.NewRecorder()
@@ -375,7 +375,7 @@ func benchmark(b *testing.B, parallel bool, size int) {
 		b.Fatal(err)
 	}
 
-	req := httptest.NewRequest("GET", "/whatever", nil)
+	req := httptest.NewRequest(http.MethodGet, "/whatever", nil)
 	req.Header.Set("Accept-Encoding", "gzip")
 	handler := newTestHandler(string(bin[:size]))
 
@@ -397,7 +397,7 @@ func benchmark(b *testing.B, parallel bool, size int) {
 func runBenchmark(b *testing.B, req *http.Request, handler http.Handler) {
 	res := httptest.NewRecorder()
 	handler.ServeHTTP(res, req)
-	if code := res.Code; code != 200 {
+	if code := res.Code; code != http.StatusOK {
 		b.Fatalf("Expected 200 but got %d", code)
 	} else if blen := res.Body.Len(); blen < 500 {
 		b.Fatalf("Expected complete response body, but got %d bytes", blen)
