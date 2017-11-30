@@ -290,50 +290,18 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // Gzip wraps an HTTP handler, to transparently gzip the
 // response body if the client supports it (via the
-// Accept-Encoding header). This will compress at the
-// default compression level. The resource will not be
-// compressed unless it exceeds 512 bytes.
-func Gzip(h http.Handler) http.Handler {
-	return GzipWithLevel(h, gzip.DefaultCompression)
-}
-
-// GzipWithLevel wraps an HTTP handler, to transparently
-// gzip the response body if the client supports it (via
-// the Accept-Encoding header). This will compress at the
-// given gzip compression level. The resource will not be
-// compressed unless it exceeds 512 bytes.
-func GzipWithLevel(h http.Handler, level int) http.Handler {
-	return GzipWithLevelAndMinSize(h, level, defaultMinSize)
-}
-
-// GzipWithLevelAndMinSize wraps an HTTP handler, to
-// transparently gzip the response body if the client
-// supports it (via the Accept-Encoding header). This will
-// compress at the given gzip compression level. The
-// resource will not be compressed unless it is larger than
-// minSize.
-func GzipWithLevelAndMinSize(h http.Handler, level, minSize int) http.Handler {
-	return GzipWithOptions(h, &Options{level, minSize})
-}
-
-// GzipWithOptions wraps an HTTP handler, to transparently
-// gzip the response body if the client supports it (via
-// the Accept-Encoding header). The provided Options struct
-// allows the behaviour of this package to be customised.
-func GzipWithOptions(h http.Handler, opts *Options) http.Handler {
-	if opts == nil {
-		panic("GzipWithOptions used with nil *Options argument")
+// the Accept-Encoding header).
+func Gzip(h http.Handler, opts ...Option) http.Handler {
+	c := config{
+		level:   DefaultCompression,
+		minSize: defaultMinSize,
 	}
 
-	if opts.Level < gzip.HuffmanOnly || opts.Level > gzip.BestCompression {
-		panic("invalid compression level requested")
+	for _, opt := range opts {
+		opt(&c)
 	}
 
-	if opts.MinSize < 0 {
-		panic("minimum size must be more than zero")
-	}
-
-	level := opts.Level
+	level := c.level
 	return &handler{
 		Handler: h,
 
@@ -348,27 +316,48 @@ func GzipWithOptions(h http.Handler, opts *Options) http.Handler {
 			},
 		},
 
-		minSize: opts.MinSize,
+		minSize: c.minSize,
 	}
 }
 
-// Options is a struct that defines options to customise
-// the behaviour of the gzip handler.
-type Options struct {
-	// Level is the gzip compression level to apply.
-	// See the level constants defined in this package.
-	//
-	// The default value adds gzip framing but performs
-	// no compression.
-	Level int
+type config struct {
+	level   int
+	minSize int
+}
 
-	// MinSize specifies the minimum size of a response
-	// before it will be compressed. Responses smaller
-	// than this value will not be compressed.
-	//
-	// If MinSize is zero, all responses will be
-	// compressed.
-	MinSize int
+// Option customizes the behaviour of the gzip handler.
+type Option func(c *config)
+
+// CompressionLevel is the gzip compression level to apply.
+// See the level constants defined in this package.
+//
+// The default value adds gzip framing but performs no
+// compression.
+func CompressionLevel(level int) Option {
+	if level < gzip.HuffmanOnly || level > gzip.BestCompression {
+		panic("gziphandler: invalid compression level requested")
+	}
+
+	return func(c *config) {
+		c.level = level
+	}
+}
+
+// MinSize specifies the minimum size of a response before
+// it will be compressed. Responses smaller than this value
+// will not be compressed.
+//
+// If size is zero, all responses will be compressed.
+//
+// The default minimum size is 512 bytes.
+func MinSize(size int) Option {
+	if size < 0 {
+		panic("gziphandler: minimum size must not be negative")
+	}
+
+	return func(c *config) {
+		c.minSize = size
+	}
 }
 
 type (

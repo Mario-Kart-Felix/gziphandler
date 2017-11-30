@@ -70,7 +70,7 @@ func TestGzipLevelHandler(t *testing.T) {
 		req, _ := http.NewRequest("GET", "/whatever", nil)
 		req.Header.Set("Accept-Encoding", "gzip")
 		resp := httptest.NewRecorder()
-		GzipWithLevel(handler, lvl).ServeHTTP(resp, req)
+		Gzip(handler, CompressionLevel(lvl)).ServeHTTP(resp, req)
 		res := resp.Result()
 
 		assert.Equal(t, 200, res.StatusCode)
@@ -80,14 +80,14 @@ func TestGzipLevelHandler(t *testing.T) {
 	}
 }
 
-func TestGzipWithLevelPanicsForInvalidLevels(t *testing.T) {
+func TestCompressionLevelPanicsForInvalid(t *testing.T) {
 	assert.Panics(t, func() {
-		GzipWithLevel(nil, -42)
-	}, "GzipWithLevel did not panic on invalid level")
+		CompressionLevel(-42)
+	}, "CompressionLevel did not panic on invalid level")
 
 	assert.Panics(t, func() {
-		GzipWithLevel(nil, 42)
-	}, "GzipWithLevel did not panic on invalid level")
+		CompressionLevel(42)
+	}, "CompressionLevel did not panic on invalid level")
 }
 
 func TestGzipHandlerNoBody(t *testing.T) {
@@ -176,7 +176,7 @@ func TestGzipHandlerContentLength(t *testing.T) {
 }
 
 func TestGzipHandlerMinSize(t *testing.T) {
-	handler := GzipWithLevelAndMinSize(http.HandlerFunc(
+	handler := Gzip(http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			resp, _ := ioutil.ReadAll(r.Body)
 			w.Write(resp)
@@ -184,7 +184,7 @@ func TestGzipHandlerMinSize(t *testing.T) {
 			w.Write(resp)
 			w.Write(resp)
 		},
-	), gzip.DefaultCompression, 13)
+	), MinSize(13))
 
 	// Run a test with size smaller than the limit
 	b := bytes.NewBufferString("test")
@@ -205,10 +205,12 @@ func TestGzipHandlerMinSize(t *testing.T) {
 	handler.ServeHTTP(resp2, req2)
 	res2 := resp2.Result()
 	assert.Equal(t, "gzip", res2.Header.Get("Content-Encoding"))
+}
 
+func TestMinSizePanicsForInvalid(t *testing.T) {
 	assert.Panics(t, func() {
-		GzipWithLevelAndMinSize(nil, gzip.DefaultCompression, -10)
-	}, "GzipWithLevelAndMinSize did not panic on negative minSize")
+		MinSize(-10)
+	}, "MinSize did not panic on negative size")
 }
 
 func TestGzipDoubleClose(t *testing.T) {
@@ -279,10 +281,10 @@ func TestFlushBeforeWrite(t *testing.T) {
 }
 
 func TestInferContentType(t *testing.T) {
-	handler := GzipWithLevelAndMinSize(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := Gzip(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, "<!doc")
 		io.WriteString(w, "type html>")
-	}), gzip.DefaultCompression, len("<!doctype html"))
+	}), MinSize(len("<!doctype html")))
 
 	req1, _ := http.NewRequest("GET", "/whatever", nil)
 	req1.Header.Add("Accept-Encoding", "gzip")
