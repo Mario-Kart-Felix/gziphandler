@@ -464,7 +464,7 @@ func TestGzipHandlerAlreadyCompressed(t *testing.T) {
 		io.WriteString(w, testBody)
 	}))
 
-	req, _ := http.NewRequest(http.MethodGet, "/whatever", nil)
+	req := httptest.NewRequest(http.MethodGet, "/whatever", nil)
 	req.Header.Set("Accept-Encoding", "gzip")
 	res := httptest.NewRecorder()
 	handler.ServeHTTP(res, req)
