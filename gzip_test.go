@@ -205,9 +205,9 @@ func TestGzipDoubleClose(t *testing.T) {
 	h := Gzip(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// call close here and it'll get called again interally by
 		// NewGzipLevelHandler's handler defer
-		w.Write([]byte("test"))
+		io.WriteString(w, "test")
 		w.(io.Closer).Close()
-	}))
+	}), MinSize(0))
 
 	r := httptest.NewRequest(http.MethodGet, "/", nil)
 	r.Header.Set("Accept-Encoding", "gzip")
