@@ -286,9 +286,7 @@ func TestInferContentType(t *testing.T) {
 }
 
 func TestInferContentTypeUncompressed(t *testing.T) {
-	handler := Gzip(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		io.WriteString(w, "<!doctype html>")
-	}))
+	handler := newTestHandler("<!doctype html>")
 
 	req1 := httptest.NewRequest(http.MethodGet, "/whatever", nil)
 	req1.Header.Add("Accept-Encoding", "gzip")
