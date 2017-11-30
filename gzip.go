@@ -78,7 +78,7 @@ func (w *responseWriter) Write(b []byte) (int, error) {
 
 	// This may succeed if the Content-Type header was
 	// explicitly set.
-	if !w.handleContentType() {
+	if w.shouldPassThrough() {
 		return w.regularFlushedWrite(b)
 	}
 
@@ -97,7 +97,7 @@ func (w *responseWriter) Write(b []byte) (int, error) {
 
 	// Now that we've called inferContentType, we have
 	// a Content-Type header.
-	if !w.handleContentType() {
+	if w.shouldPassThrough() {
 		return w.regularFlushedWrite(b)
 	}
 
@@ -187,6 +187,14 @@ func (w *responseWriter) inferContentType(b []byte) {
 
 	// It infer it from the uncompressed body.
 	h["Content-Type"] = []string{http.DetectContentType(b)}
+}
+
+func (w *responseWriter) shouldPassThrough() bool {
+	if w.Header().Get("Content-Encoding") != "" {
+		return true
+	}
+
+	return !w.handleContentType()
 }
 
 func (w *responseWriter) handleContentType() bool {

@@ -458,6 +458,21 @@ func TestContentTypesMultiWrite(t *testing.T) {
 	assert.Equal(t, testBody+testBody, resp.Body.String())
 }
 
+func TestGzipHandlerAlreadyCompressed(t *testing.T) {
+	handler := Gzip(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Encoding", "br")
+		io.WriteString(w, testBody)
+	}))
+
+	req, _ := http.NewRequest(http.MethodGet, "/whatever", nil)
+	req.Header.Set("Accept-Encoding", "gzip")
+	res := httptest.NewRecorder()
+	handler.ServeHTTP(res, req)
+
+	assert.Equal(t, "br", res.Result().Header.Get("Content-Encoding"))
+	assert.Equal(t, testBody, res.Body.String())
+}
+
 // --------------------------------------------------------------------
 
 func BenchmarkGzipHandler_S2k(b *testing.B)   { benchmark(b, false, 2048) }
