@@ -112,19 +112,23 @@ func (w *responseWriter) startGzip() (err error) {
 	w.gw = w.h.pool.Get().(*gzip.Writer)
 	w.gw.Reset(w.ResponseWriter)
 
-	buf := *w.buf
-
-	if len(buf) != 0 {
+	if buf := *w.buf; len(buf) != 0 {
 		// Flush the buffer into the gzip response.
 		_, err = w.gw.Write(buf)
 	}
 
-	// Empty the buffer.
-	*w.buf = buf[:0]
+	w.releaseBuffer()
+	return err
+}
+
+func (w *responseWriter) releaseBuffer() {
+	if w.buf == nil {
+		panic("w.buf is nil in call to emptyBuffer")
+	}
+
+	*w.buf = (*w.buf)[:0]
 	bufferPool.Put(w.buf)
 	w.buf = nil
-
-	return err
 }
 
 func (w *responseWriter) inferContentType(b []byte) {
@@ -192,15 +196,11 @@ func (w *responseWriter) closeNonGzipped() (err error) {
 	w.ResponseWriter.WriteHeader(w.code)
 
 	// Make the write into the regular response.
-	buf := *w.buf
-	if len(buf) != 0 {
+	if buf := *w.buf; len(buf) != 0 {
 		_, err = w.ResponseWriter.Write(buf)
 	}
 
-	*w.buf = buf[:0]
-	bufferPool.Put(w.buf)
-	w.buf = nil
-
+	w.releaseBuffer()
 	return err
 }
 
