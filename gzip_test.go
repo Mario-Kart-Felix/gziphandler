@@ -349,6 +349,115 @@ func TestResponseWriterTypes(t *testing.T) {
 	assert.True(t, cok && !hok && pok, "expected CloseNotifier and Pusher")
 }
 
+func TestContentTypes(t *testing.T) {
+	for _, tt := range []struct {
+		name                 string
+		contentType          string
+		sniffContentType     bool
+		acceptedContentTypes []string
+		expectedGzip         bool
+	}{
+		{
+			name:                 "Always gzip when content types are empty",
+			contentType:          "",
+			acceptedContentTypes: []string{},
+			expectedGzip:         true,
+		},
+		{
+			name:                 "Exact content-type match",
+			contentType:          "application/json",
+			acceptedContentTypes: []string{"application/json"},
+			expectedGzip:         true,
+		},
+		{
+			name:                 "Non-matching content-type",
+			contentType:          "text/xml",
+			acceptedContentTypes: []string{"application/json"},
+			expectedGzip:         false,
+		},
+		{
+			name:                 "No-subtype content-type match",
+			contentType:          "application/json",
+			acceptedContentTypes: []string{"application/*"},
+			expectedGzip:         true,
+		},
+		{
+			name:                 "content-type with directive match",
+			contentType:          "application/json; charset=utf-8",
+			acceptedContentTypes: []string{"application/json"},
+			expectedGzip:         true,
+		},
+
+		{
+			name:                 "Always gzip when content types are empty, sniffed",
+			sniffContentType:     true,
+			acceptedContentTypes: []string{},
+			expectedGzip:         true,
+		},
+		{
+			name:                 "Exact content-type match, sniffed",
+			sniffContentType:     true,
+			acceptedContentTypes: []string{"text/plain"},
+			expectedGzip:         true,
+		},
+		{
+			name:                 "Non-matching content-type, sniffed",
+			sniffContentType:     true,
+			acceptedContentTypes: []string{"application/json"},
+			expectedGzip:         false,
+		},
+		{
+			name:                 "No-subtype content-type match, sniffed",
+			sniffContentType:     true,
+			acceptedContentTypes: []string{"text/*"},
+			expectedGzip:         true,
+		},
+	} {
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !tt.sniffContentType {
+				w.Header().Set("Content-Type", tt.contentType)
+			}
+
+			w.WriteHeader(http.StatusTeapot)
+			io.WriteString(w, testBody)
+		})
+
+		req := httptest.NewRequest(http.MethodGet, "/whatever", nil)
+		req.Header.Set("Accept-Encoding", "gzip")
+		resp := httptest.NewRecorder()
+		Gzip(handler, ContentTypes(tt.acceptedContentTypes)).ServeHTTP(resp, req)
+
+		res := resp.Result()
+		assert.Equal(t, http.StatusTeapot, res.StatusCode)
+
+		if ce := res.Header.Get("Content-Encoding"); tt.expectedGzip {
+			assert.Equal(t, "gzip", ce, tt.name)
+		} else {
+			assert.NotEqual(t, "gzip", ce, tt.name)
+		}
+	}
+}
+
+func TestContentTypesMultiWrite(t *testing.T) {
+	handler := Gzip(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "example/mismatch")
+		io.WriteString(w, testBody)
+
+		w.Header().Set("Content-Type", "example/match")
+		io.WriteString(w, testBody)
+	}), ContentTypes([]string{"example/match"}))
+
+	req := httptest.NewRequest(http.MethodGet, "/whatever", nil)
+	req.Header.Set("Accept-Encoding", "gzip")
+	resp := httptest.NewRecorder()
+	handler.ServeHTTP(resp, req)
+
+	res := resp.Result()
+	assert.Equal(t, http.StatusOK, res.StatusCode)
+	assert.NotEqual(t, "gzip", res.Header.Get("Content-Encoding"))
+	assert.Equal(t, testBody+testBody, resp.Body.String())
+}
+
 // --------------------------------------------------------------------
 
 func BenchmarkGzipHandler_S2k(b *testing.B)   { benchmark(b, false, 2048) }

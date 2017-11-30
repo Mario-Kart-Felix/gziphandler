@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/golang/gddo/httputil/header"
+	"github.com/tmthrgd/httputils"
 )
 
 const defaultMinSize = 512
@@ -66,12 +67,23 @@ func (w *responseWriter) Write(b []byte) (int, error) {
 		return w.gw.Write(b)
 	}
 
+	// We're operating in pass through mode.
+	if w.buf == nil {
+		return w.ResponseWriter.Write(b)
+	}
+
 	if w.code == 0 {
 		w.code = http.StatusOK
 	}
 
+	// This may succeed if the Content-Type header was
+	// explicitly set.
+	if !w.handleContentType() {
+		return w.regularFlushedWrite(b)
+	}
+
 	// If the global writes are bigger than the minSize,
-	// compression is enable.
+	// compression may be enabled.
 	if buf := *w.buf; len(buf)+len(b) < w.h.minSize {
 		// Save the write into a buffer for later
 		// use in GZIP responseWriter (if content
@@ -82,6 +94,12 @@ func (w *responseWriter) Write(b []byte) (int, error) {
 	}
 
 	w.inferContentType(b)
+
+	// Now that we've called inferContentType, we have
+	// a Content-Type header.
+	if !w.handleContentType() {
+		return w.regularFlushedWrite(b)
+	}
 
 	if err := w.startGzip(); err != nil {
 		return 0, err
@@ -131,6 +149,19 @@ func (w *responseWriter) releaseBuffer() {
 	w.buf = nil
 }
 
+func (w *responseWriter) regularFlushedWrite(b []byte) (int, error) {
+	w.ResponseWriter.WriteHeader(w.code)
+
+	if buf := *w.buf; len(buf) != 0 {
+		if _, err := w.ResponseWriter.Write(buf); err != nil {
+			return 0, err
+		}
+	}
+
+	w.releaseBuffer()
+	return w.ResponseWriter.Write(b)
+}
+
 func (w *responseWriter) inferContentType(b []byte) {
 	h := w.Header()
 
@@ -156,6 +187,27 @@ func (w *responseWriter) inferContentType(b []byte) {
 
 	// It infer it from the uncompressed body.
 	h["Content-Type"] = []string{http.DetectContentType(b)}
+}
+
+func (w *responseWriter) handleContentType() bool {
+	// If contentTypes is empty, accept any content
+	// type.
+	if len(w.h.contentTypes) == 0 {
+		return true
+	}
+
+	// If the Content-Type header is not set, return
+	// as we haven't called inferContentType yet.
+	ct, ok := w.Header()["Content-Type"]
+	if !ok {
+		return true
+	}
+
+	if len(ct) == 0 {
+		return false
+	}
+
+	return httputils.MIMETypeMatches(ct[0], w.h.contentTypes)
 }
 
 // Close will close the gzip.Writer and will put it back in
@@ -208,17 +260,21 @@ func (w *responseWriter) closeNonGzipped() (err error) {
 // underlying http.ResponseWriter if it is an http.Flusher.
 // This makes GzipResponseWriter an http.Flusher.
 func (w *responseWriter) Flush() {
-	if w.gw == nil {
+	if w.gw == nil && w.buf != nil {
 		// Fix for NYTimes/gziphandler#58:
 		//  Only flush once startGzip has been
-		//  called.
+		//  called, or when operating in pass
+		//  through mode.
 		//
 		// Flush is thus a no-op until the written
-		// body exceeds minSize.
+		// body exceeds minSize, or we've decided
+		// not to compress.
 		return
 	}
 
-	w.gw.Flush()
+	if w.gw != nil {
+		w.gw.Flush()
+	}
 
 	if fw, ok := w.ResponseWriter.(http.Flusher); ok {
 		fw.Flush()
@@ -228,9 +284,9 @@ func (w *responseWriter) Flush() {
 type handler struct {
 	http.Handler
 
-	pool *sync.Pool
+	config
 
-	minSize int
+	pool *sync.Pool
 }
 
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -316,13 +372,14 @@ func Gzip(h http.Handler, opts ...Option) http.Handler {
 			},
 		},
 
-		minSize: c.minSize,
+		config: c,
 	}
 }
 
 type config struct {
-	level   int
-	minSize int
+	level        int
+	minSize      int
+	contentTypes []string
 }
 
 // Option customizes the behaviour of the gzip handler.
@@ -357,6 +414,31 @@ func MinSize(size int) Option {
 
 	return func(c *config) {
 		c.minSize = size
+	}
+}
+
+// ContentTypes specifies a list of MIME types to compare
+// the Content-Type header to before compressing. If none
+// match, the response will be returned as-is.
+//
+// MIME types are compared in a case-sensitive manner.
+//
+// A MIME type, but without any subtype, will match any
+// more precise MIME type, i.e. image/* will match
+// image/png, image/svg, image/gif and any other image
+// types.
+//
+// Any directives that may be present in the Content-Type
+// header will be skipped when comparing, i.e. text/html
+// will match 'text/html; charset=utf-8'.
+//
+// By default, responses are gzipped regardless of
+// Content-Type.
+func ContentTypes(types []string) Option {
+	types = append([]string(nil), types...)
+
+	return func(c *config) {
+		c.contentTypes = types
 	}
 }
 
