@@ -166,15 +166,13 @@ func TestGzipHandlerContentLength(t *testing.T) {
 }
 
 func TestGzipHandlerMinSize(t *testing.T) {
-	handler := Gzip(http.HandlerFunc(
-		func(w http.ResponseWriter, r *http.Request) {
-			resp, _ := ioutil.ReadAll(r.Body)
-			w.Write(resp)
-			// Call write multiple times to pass through "chosenWriter"
-			w.Write(resp)
-			w.Write(resp)
-		},
-	), MinSize(13))
+	handler := Gzip(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp, _ := ioutil.ReadAll(r.Body)
+		w.Write(resp)
+		// Call write multiple times to pass through "chosenWriter"
+		w.Write(resp)
+		w.Write(resp)
+	}), MinSize(13))
 
 	// Run a test with size smaller than the limit
 	b := bytes.NewBufferString("test")
