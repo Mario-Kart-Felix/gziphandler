@@ -154,46 +154,53 @@ func (w *responseWriter) inferContentType(b []byte) {
 // Close will close the gzip.Writer and will put it back in
 // the gzipWriterPool.
 func (w *responseWriter) Close() error {
+	switch {
+	case w.buf != nil && w.gw != nil:
+		panic("both buf and gw are non nil in call to Close")
 	// Buffer not nil means the regular response must
 	// be returned.
-	if w.buf != nil {
-		buf := *w.buf
-
-		if len(buf) != 0 {
-			w.inferContentType(nil)
-		}
-
-		if w.code == 0 {
-			w.code = http.StatusOK
-		}
-
-		w.ResponseWriter.WriteHeader(w.code)
-
-		// Make the write into the regular response.
-		var err error
-		if len(buf) != 0 {
-			_, err = w.ResponseWriter.Write(buf)
-		}
-
-		*w.buf = buf[:0]
-		bufferPool.Put(w.buf)
-		w.buf = nil
-
-		if err != nil {
-			return err
-		}
-	}
-
-	// If the GZIP responseWriter is not set no needs
+	case w.buf != nil:
+		return w.closeNonGzipped()
+	// If the GZIP responseWriter is not set no need
 	// to close it.
-	if w.gw == nil {
+	case w.gw != nil:
+		return w.closeGzipped()
+	default:
 		return nil
 	}
+}
 
+func (w *responseWriter) closeGzipped() error {
 	err := w.gw.Close()
 
 	w.h.pool.Put(w.gw)
 	w.gw = nil
+
+	return err
+}
+
+func (w *responseWriter) closeNonGzipped() error {
+	buf := *w.buf
+
+	if len(buf) != 0 {
+		w.inferContentType(nil)
+	}
+
+	if w.code == 0 {
+		w.code = http.StatusOK
+	}
+
+	w.ResponseWriter.WriteHeader(w.code)
+
+	// Make the write into the regular response.
+	var err error
+	if len(buf) != 0 {
+		_, err = w.ResponseWriter.Write(buf)
+	}
+
+	*w.buf = buf[:0]
+	bufferPool.Put(w.buf)
+	w.buf = nil
 
 	return err
 }
