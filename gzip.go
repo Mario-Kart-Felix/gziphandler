@@ -252,22 +252,14 @@ func (w *responseWriter) closeGzipped() error {
 	return err
 }
 
-func (w *responseWriter) closeNonGzipped() (err error) {
+func (w *responseWriter) closeNonGzipped() error {
 	w.inferContentType(nil)
 
 	if w.code == 0 {
 		w.code = http.StatusOK
 	}
 
-	w.ResponseWriter.WriteHeader(w.code)
-
-	// Make the write into the regular response.
-	if buf := *w.buf; len(buf) != 0 {
-		_, err = w.ResponseWriter.Write(buf)
-	}
-
-	w.releaseBuffer()
-	return err
+	return w.startPassThrough()
 }
 
 // Flush flushes the underlying *gzip.Writer and then the
