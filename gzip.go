@@ -79,7 +79,11 @@ func (w *responseWriter) Write(b []byte) (int, error) {
 	// This may succeed if the Content-Type header was
 	// explicitly set.
 	if w.shouldPassThrough() {
-		return w.regularFlushedWrite(b)
+		if err := w.startPassThrough(); err != nil {
+			return 0, err
+		}
+
+		return w.ResponseWriter.Write(b)
 	}
 
 	// If the global writes are bigger than the minSize,
@@ -98,7 +102,11 @@ func (w *responseWriter) Write(b []byte) (int, error) {
 	// Now that we've called inferContentType, we have
 	// a Content-Type header.
 	if w.shouldPassThrough() {
-		return w.regularFlushedWrite(b)
+		if err := w.startPassThrough(); err != nil {
+			return 0, err
+		}
+
+		return w.ResponseWriter.Write(b)
 	}
 
 	if err := w.startGzip(); err != nil {
@@ -139,6 +147,17 @@ func (w *responseWriter) startGzip() (err error) {
 	return err
 }
 
+func (w *responseWriter) startPassThrough() (err error) {
+	w.ResponseWriter.WriteHeader(w.code)
+
+	if buf := *w.buf; len(buf) != 0 {
+		_, err = w.ResponseWriter.Write(buf)
+	}
+
+	w.releaseBuffer()
+	return err
+}
+
 func (w *responseWriter) releaseBuffer() {
 	if w.buf == nil {
 		panic("w.buf is nil in call to emptyBuffer")
@@ -147,19 +166,6 @@ func (w *responseWriter) releaseBuffer() {
 	*w.buf = (*w.buf)[:0]
 	bufferPool.Put(w.buf)
 	w.buf = nil
-}
-
-func (w *responseWriter) regularFlushedWrite(b []byte) (int, error) {
-	w.ResponseWriter.WriteHeader(w.code)
-
-	if buf := *w.buf; len(buf) != 0 {
-		if _, err := w.ResponseWriter.Write(buf); err != nil {
-			return 0, err
-		}
-	}
-
-	w.releaseBuffer()
-	return w.ResponseWriter.Write(b)
 }
 
 func (w *responseWriter) inferContentType(b []byte) {
