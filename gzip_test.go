@@ -370,6 +370,12 @@ func TestContentTypes(t *testing.T) {
 			expectedGzip:         true,
 		},
 		{
+			name:                 "Case-insensitive content-type matching",
+			contentType:          "Application/Json",
+			acceptedContentTypes: []string{"application/json"},
+			expectedGzip:         true,
+		},
+		{
 			name:                 "Non-matching content-type",
 			contentType:          "text/xml",
 			acceptedContentTypes: []string{"application/json"},
@@ -378,6 +384,12 @@ func TestContentTypes(t *testing.T) {
 		{
 			name:                 "No-subtype content-type match",
 			contentType:          "application/json",
+			acceptedContentTypes: []string{"application/*"},
+			expectedGzip:         true,
+		},
+		{
+			name:                 "Case-insensitive no-subtype content-type match",
+			contentType:          "Application/Json",
 			acceptedContentTypes: []string{"application/*"},
 			expectedGzip:         true,
 		},
@@ -401,6 +413,12 @@ func TestContentTypes(t *testing.T) {
 			expectedGzip:         true,
 		},
 		{
+			name:                 "Case-insensitive content-type matching",
+			sniffContentType:     true,
+			acceptedContentTypes: []string{"Text/Plain"},
+			expectedGzip:         true,
+		},
+		{
 			name:                 "Non-matching content-type, sniffed",
 			sniffContentType:     true,
 			acceptedContentTypes: []string{"application/json"},
@@ -410,6 +428,12 @@ func TestContentTypes(t *testing.T) {
 			name:                 "No-subtype content-type match, sniffed",
 			sniffContentType:     true,
 			acceptedContentTypes: []string{"text/*"},
+			expectedGzip:         true,
+		},
+		{
+			name:                 "Case-insensitive no-subtype content-type match",
+			sniffContentType:     true,
+			acceptedContentTypes: []string{"Text/*"},
 			expectedGzip:         true,
 		},
 	} {

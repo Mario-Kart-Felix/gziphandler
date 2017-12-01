@@ -429,7 +429,7 @@ func MinSize(size int) Option {
 // the Content-Type header to before compressing. If none
 // match, the response will be returned as-is.
 //
-// MIME types are compared in a case-sensitive manner.
+// MIME types are compared in a case-insensitive manner.
 //
 // A MIME type, but without any subtype, will match any
 // more precise MIME type, i.e. image/* will match
