@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -133,9 +134,7 @@ func TestGzipHandlerContentLength(t *testing.T) {
 	// header so instead, we create a server on a random port and make
 	// a request to that instead
 	ln, err := net.Listen("tcp", "127.0.0.1:")
-	if err != nil {
-		t.Fatalf("failed creating listen socket: %v", err)
-	}
+	require.NoError(t, err, "failed creating listen socket")
 	defer ln.Close()
 	srv := &http.Server{
 		Handler: handler,
@@ -150,20 +149,14 @@ func TestGzipHandlerContentLength(t *testing.T) {
 	}
 	req.Header.Set("Accept-Encoding", "gzip")
 	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatalf("Unexpected error making http request: %v", err)
-	}
+	require.NoError(t, err, "Unexpected error making http request")
 	defer res.Body.Close()
 
 	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		t.Fatalf("Unexpected error reading response body: %v", err)
-	}
+	require.NoError(t, err, "Unexpected error reading response body")
 
 	l, err := strconv.Atoi(res.Header.Get("Content-Length"))
-	if err != nil {
-		t.Fatalf("Unexpected error parsing Content-Length: %v", err)
-	}
+	require.NoError(t, err, "Unexpected error parsing Content-Length")
 	assert.Len(t, body, l)
 	assert.Equal(t, "gzip", res.Header.Get("Content-Encoding"))
 	assert.NotEqual(t, b, body)
@@ -521,9 +514,7 @@ func gzipStrLevel(s string, lvl int) []byte {
 
 func benchmark(b *testing.B, parallel bool, size int) {
 	bin, err := ioutil.ReadFile("testdata/benchmark.json")
-	if err != nil {
-		b.Fatal(err)
-	}
+	require.NoError(b, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/whatever", nil)
 	req.Header.Set("Accept-Encoding", "gzip")
