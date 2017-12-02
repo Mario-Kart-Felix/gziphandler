@@ -347,10 +347,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	defer func() {
 		if err := gw.Close(); err != nil {
-			srv, _ := r.Context().Value(http.ServerContextKey).(*http.Server)
-			if srv != nil && srv.ErrorLog != nil {
-				srv.ErrorLog.Printf("gziphandler: %v", err)
-			}
+			httputils.RequestLogf(r, "gziphandler: error closing writer: %#v", err)
 		}
 	}()
 
