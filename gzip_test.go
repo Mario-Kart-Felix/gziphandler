@@ -78,11 +78,11 @@ func TestGzipLevelHandler(t *testing.T) {
 }
 
 func TestCompressionLevelPanicsForInvalid(t *testing.T) {
-	assert.Panics(t, func() {
+	assert.PanicsWithValue(t, "gziphandler: invalid compression level requested", func() {
 		CompressionLevel(-42)
 	}, "CompressionLevel did not panic on invalid level")
 
-	assert.Panics(t, func() {
+	assert.PanicsWithValue(t, "gziphandler: invalid compression level requested", func() {
 		CompressionLevel(42)
 	}, "CompressionLevel did not panic on invalid level")
 }
@@ -184,7 +184,7 @@ func TestGzipHandlerMinSize(t *testing.T) {
 }
 
 func TestMinSizePanicsForInvalid(t *testing.T) {
-	assert.Panics(t, func() {
+	assert.PanicsWithValue(t, "gziphandler: minimum size must not be negative", func() {
 		MinSize(-10)
 	}, "MinSize did not panic on negative size")
 }
