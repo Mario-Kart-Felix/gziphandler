@@ -206,12 +206,15 @@ func TestMinSizePanicsForInvalid(t *testing.T) {
 }
 
 func TestGzipDoubleClose(t *testing.T) {
+	addGzipPool(DefaultCompression)
+	pool := gzipPool[gzipPoolIndex(DefaultCompression)]
+
 	h := Gzip(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// call close here and it'll get called again interally by
 		// NewGzipLevelHandler's handler defer
 		io.WriteString(w, "test")
 		w.(io.Closer).Close()
-	}), MinSize(0))
+	}), MinSize(0), CompressionLevel(DefaultCompression))
 
 	r := httptest.NewRequest(http.MethodGet, "/", nil)
 	r.Header.Set("Accept-Encoding", "gzip")
@@ -220,8 +223,8 @@ func TestGzipDoubleClose(t *testing.T) {
 
 	// the second close shouldn't have added the same writer
 	// so we pull out 2 writers from the pool and make sure they're different
-	w1 := h.(*handler).pool.Get()
-	w2 := h.(*handler).pool.Get()
+	w1 := pool.Get()
+	w2 := pool.Get()
 	// assert.NotEqual looks at the value and not the address, so we use regular ==
 	assert.False(t, w1 == w2)
 }

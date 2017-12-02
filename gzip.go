@@ -20,6 +20,31 @@ var bufferPool = &sync.Pool{
 	},
 }
 
+var gzipPool [BestCompression - HuffmanOnly + 1]*sync.Pool
+
+func gzipPoolIndex(level int) int {
+	return level - HuffmanOnly
+}
+
+func addGzipPool(level int) {
+	gzipPool[gzipPoolIndex(level)] = &sync.Pool{
+		New: func() interface{} {
+			w, err := gzip.NewWriterLevel(nil, level)
+			if err != nil {
+				panic(err)
+			}
+
+			return w
+		},
+	}
+}
+
+func init() {
+	for level := HuffmanOnly; level <= BestCompression; level++ {
+		addGzipPool(level)
+	}
+}
+
 // These constants are copied from the gzip package, so
 // that code that imports "github.com/tmthrgd/gziphandler"
 // does not also have to import "compress/gzip".
@@ -135,7 +160,7 @@ func (w *responseWriter) startGzip() (err error) {
 	// Bytes written during ServeHTTP are redirected to
 	// this gzip writer before being written to the
 	// underlying response.
-	w.gw = w.h.pool.Get().(*gzip.Writer)
+	w.gw = w.h.pool().Get().(*gzip.Writer)
 	w.gw.Reset(w.ResponseWriter)
 
 	if buf := *w.buf; len(buf) != 0 {
@@ -246,7 +271,7 @@ func (w *responseWriter) Close() error {
 func (w *responseWriter) closeGzipped() error {
 	err := w.gw.Close()
 
-	w.h.pool.Put(w.gw)
+	w.h.pool().Put(w.gw)
 	w.gw = nil
 
 	return err
@@ -289,10 +314,11 @@ func (w *responseWriter) Flush() {
 
 type handler struct {
 	http.Handler
-
 	config
+}
 
-	pool *sync.Pool
+func (h *handler) pool() *sync.Pool {
+	return gzipPool[gzipPoolIndex(h.level)]
 }
 
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -354,32 +380,19 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // response body if the client supports it (via the
 // the Accept-Encoding header).
 func Gzip(h http.Handler, opts ...Option) http.Handler {
-	c := config{
-		level:   DefaultCompression,
-		minSize: defaultMinSize,
+	gzh := &handler{
+		Handler: h,
+		config: config{
+			level:   DefaultCompression,
+			minSize: defaultMinSize,
+		},
 	}
 
 	for _, opt := range opts {
-		opt(&c)
+		opt(&gzh.config)
 	}
 
-	level := c.level
-	return &handler{
-		Handler: h,
-
-		pool: &sync.Pool{
-			New: func() interface{} {
-				w, err := gzip.NewWriterLevel(nil, level)
-				if err != nil {
-					panic(err)
-				}
-
-				return w
-			},
-		},
-
-		config: c,
-	}
+	return gzh
 }
 
 type config struct {
