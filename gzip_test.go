@@ -485,6 +485,34 @@ func TestGzipHandlerAlreadyCompressed(t *testing.T) {
 	assert.Equal(t, testBody, res.Body.String())
 }
 
+func TestReleaseBufferPanicsInvaraiant(t *testing.T) {
+	assert.PanicsWithValue(t, "gziphandler: w.buf is nil in call to emptyBuffer", func() {
+		new(responseWriter).releaseBuffer()
+	}, "releaseBuffer did not panic with nil buf")
+}
+
+func TestWritePanicsInvariant(t *testing.T) {
+	assert.PanicsWithValue(t, "gziphandler: both buf and gw are non nil in call to Write", func() {
+		var gw gzip.Writer
+		var buf []byte
+		(&responseWriter{
+			gw:  &gw,
+			buf: &buf,
+		}).Write(nil)
+	}, "Write did not panic with both gw and buf non-nil")
+}
+
+func TestClosePanicsInvariant(t *testing.T) {
+	assert.PanicsWithValue(t, "gziphandler: both buf and gw are non nil in call to Close", func() {
+		var gw gzip.Writer
+		var buf []byte
+		(&responseWriter{
+			gw:  &gw,
+			buf: &buf,
+		}).Close()
+	}, "Close did not panic with both gw and buf non-nil")
+}
+
 // --------------------------------------------------------------------
 
 func BenchmarkGzipHandler_S2k(b *testing.B)   { benchmark(b, false, 2048) }
