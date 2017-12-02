@@ -43,12 +43,12 @@ type responseWriter struct {
 
 	gw *gzip.Writer
 
-	// Saves the WriteHeader value.
-	code int
-
 	// Holds the first part of the write before reaching
 	// the minSize or the end of the write.
 	buf *[]byte
+
+	// Saves the WriteHeader value.
+	code int
 }
 
 // WriteHeader just saves the response code until close or
