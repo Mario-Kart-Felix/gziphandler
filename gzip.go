@@ -263,6 +263,8 @@ func (w *responseWriter) Close() error {
 	// to close it.
 	case w.gw != nil:
 		return w.closeGzipped()
+	// Both buf and gw nil means we are operating in
+	// pass through mode.
 	default:
 		return nil
 	}
@@ -289,13 +291,12 @@ func (w *responseWriter) closeNonGzipped() error {
 
 // Flush flushes the underlying *gzip.Writer and then the
 // underlying http.ResponseWriter if it is an http.Flusher.
-// This makes GzipResponseWriter an http.Flusher.
+// This makes responseWriter an http.Flusher.
 func (w *responseWriter) Flush() {
 	if w.gw == nil && w.buf != nil {
 		// Fix for NYTimes/gziphandler#58:
-		//  Only flush once startGzip has been
-		//  called, or when operating in pass
-		//  through mode.
+		//  Only flush once startGzip or
+		//  startPassThrough has been called.
 		//
 		// Flush is thus a no-op until the written
 		// body exceeds minSize, or we've decided
