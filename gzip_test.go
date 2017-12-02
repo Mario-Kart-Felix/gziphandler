@@ -136,7 +136,10 @@ func TestGzipHandlerContentLength(t *testing.T) {
 	req.Close = true
 	req.Header.Set("Accept-Encoding", "gzip")
 
-	res, err := srv.Client().Do(req)
+	// TODO: in go1.9 (*httptest.Server).Client was
+	// introduced. This should be used once go1.8 is
+	// not longer supported.
+	res, err := http.DefaultClient.Do(req)
 	require.NoError(t, err, "Unexpected error making http request")
 	defer res.Body.Close()
 
