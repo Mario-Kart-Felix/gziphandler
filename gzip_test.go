@@ -3,7 +3,6 @@ package gziphandler
 import (
 	"bytes"
 	"compress/gzip"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
@@ -114,9 +113,9 @@ func TestGzipHandlerNoBody(t *testing.T) {
 		handler.ServeHTTP(rec, req)
 
 		header := rec.Header()
-		assert.Equal(t, test.contentEncoding, header.Get("Content-Encoding"), fmt.Sprintf("for test iteration %d", num))
-		assert.Equal(t, "Accept-Encoding", header.Get("Vary"), fmt.Sprintf("for test iteration %d", num))
-		assert.Equal(t, test.bodyLen, rec.Body.Len(), fmt.Sprintf("for test iteration %d", num))
+		assert.Equal(t, test.contentEncoding, header.Get("Content-Encoding"), "for test iteration %d", num)
+		assert.Equal(t, "Accept-Encoding", header.Get("Vary"), "for test iteration %d", num)
+		assert.Equal(t, test.bodyLen, rec.Body.Len(), "for test iteration %d", num)
 	}
 }
 
