@@ -313,7 +313,7 @@ func (w *responseWriter) Flush() {
 }
 
 type handler struct {
-	http.Handler
+	h http.Handler
 	config
 }
 
@@ -334,7 +334,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !acceptsGzip {
-		h.Handler.ServeHTTP(w, r)
+		h.h.ServeHTTP(w, r)
 		return
 	}
 
@@ -370,7 +370,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		rw = pusherResponseWriter{gw}
 	}
 
-	h.Handler.ServeHTTP(rw, r)
+	h.h.ServeHTTP(rw, r)
 }
 
 // Gzip wraps an HTTP handler, to transparently gzip the
@@ -378,7 +378,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // the Accept-Encoding header).
 func Gzip(h http.Handler, opts ...Option) http.Handler {
 	gzh := &handler{
-		Handler: h,
+		h: h,
 		config: config{
 			level:   DefaultCompression,
 			minSize: defaultMinSize,
