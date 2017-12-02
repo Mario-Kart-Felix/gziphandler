@@ -1,10 +1,12 @@
 package gziphandler
 
 import (
+	"bufio"
 	"bytes"
 	"compress/gzip"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -330,13 +332,62 @@ func TestInferContentTypeUncompressed(t *testing.T) {
 	assert.Equal(t, "text/html; charset=utf-8", res1.Header.Get("Content-Type"))
 }
 
-func TestResponseWriterTypes(t *testing.T) {
-	var cok, hok, pok bool
+type httpCloseNotifierFunc func() <-chan bool
 
+func (fn httpCloseNotifierFunc) CloseNotify() <-chan bool { return fn() }
+
+type httpHijackerFunc func() (net.Conn, *bufio.ReadWriter, error)
+
+func (fn httpHijackerFunc) Hijack() (net.Conn, *bufio.ReadWriter, error) { return fn() }
+
+type httpPusherFunc func(target string, opts *http.PushOptions) error
+
+func (fn httpPusherFunc) Push(target string, opts *http.PushOptions) error { return fn(target, opts) }
+
+func TestResponseWriterTypes(t *testing.T) {
+	var closeNotified bool
+	closeNotifier := func() http.CloseNotifier {
+		closeNotified = false
+		return httpCloseNotifierFunc(func() <-chan bool {
+			closeNotified = true
+			return nil
+		})
+	}
+
+	var hijacked bool
+	hijacker := func() http.Hijacker {
+		hijacked = false
+		return httpHijackerFunc(func() (net.Conn, *bufio.ReadWriter, error) {
+			hijacked = true
+			return nil, nil, nil
+		})
+	}
+
+	var pushed bool
+	pusher := func() http.Pusher {
+		pushed = false
+		return httpPusherFunc(func(string, *http.PushOptions) error {
+			pushed = true
+			return nil
+		})
+	}
+
+	var cok, hok, pok bool
 	handler := Gzip(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, cok = w.(http.CloseNotifier)
-		_, hok = w.(http.Hijacker)
-		_, pok = w.(http.Pusher)
+		var c http.CloseNotifier
+		if c, cok = w.(http.CloseNotifier); cok {
+			c.CloseNotify()
+		}
+
+		var h http.Hijacker
+		if h, hok = w.(http.Hijacker); hok {
+			h.Hijack()
+		}
+
+		var p http.Pusher
+		if p, pok = w.(http.Pusher); pok {
+			p.Push("", nil)
+		}
 	}))
 
 	req1 := httptest.NewRequest(http.MethodGet, "/whatever", nil)
@@ -350,34 +401,41 @@ func TestResponseWriterTypes(t *testing.T) {
 	handler.ServeHTTP(struct {
 		http.ResponseWriter
 		http.CloseNotifier
-	}{resp1, nil}, req1)
+	}{resp1, closeNotifier()}, req1)
 	assert.True(t, cok && !hok && !pok, "expected CloseNotifier")
+	assert.True(t, closeNotified, "CloseNotify did not call underlying http.CloseNotifier")
 
 	handler.ServeHTTP(struct {
 		http.ResponseWriter
 		http.Hijacker
-	}{resp1, nil}, req1)
+	}{resp1, hijacker()}, req1)
 	assert.True(t, !cok && hok && !pok, "expected Hijacker")
+	assert.True(t, hijacked, "Hijack did not call underlying http.Hijacker")
 
 	handler.ServeHTTP(struct {
 		http.ResponseWriter
 		http.Pusher
-	}{resp1, nil}, req1)
+	}{resp1, pusher()}, req1)
 	assert.True(t, !cok && !hok && pok, "expected Pusher")
+	assert.True(t, pushed, "Push did not call underlying http.Pusher")
 
 	handler.ServeHTTP(struct {
 		http.ResponseWriter
 		http.CloseNotifier
 		http.Hijacker
-	}{resp1, nil, nil}, req1)
+	}{resp1, closeNotifier(), hijacker()}, req1)
 	assert.True(t, cok && hok && !pok, "expected CloseNotifier and Hijacker")
+	assert.True(t, closeNotified, "CloseNotify did not call underlying http.CloseNotifier")
+	assert.True(t, hijacked, "Hijack did not call underlying http.Hijacker")
 
 	handler.ServeHTTP(struct {
 		http.ResponseWriter
 		http.CloseNotifier
 		http.Pusher
-	}{resp1, nil, nil}, req1)
+	}{resp1, closeNotifier(), pusher()}, req1)
 	assert.True(t, cok && !hok && pok, "expected CloseNotifier and Pusher")
+	assert.True(t, closeNotified, "CloseNotify did not call underlying http.CloseNotifier")
+	assert.True(t, pushed, "Push did not call underlying http.Pusher")
 }
 
 func TestContentTypes(t *testing.T) {
