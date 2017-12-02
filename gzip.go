@@ -86,14 +86,15 @@ func (w *responseWriter) WriteHeader(code int) {
 
 // Write appends data to the gzip writer.
 func (w *responseWriter) Write(b []byte) (int, error) {
+	switch {
+	case w.buf != nil && w.gw != nil:
+		panic("gziphandler: both buf and gw are non nil in call to Write")
 	// GZIP responseWriter is initialized. Use the GZIP
 	// responseWriter.
-	if w.gw != nil {
+	case w.gw != nil:
 		return w.gw.Write(b)
-	}
-
 	// We're operating in pass through mode.
-	if w.buf == nil {
+	case w.buf == nil:
 		return w.ResponseWriter.Write(b)
 	}
 
