@@ -185,7 +185,7 @@ func (w *responseWriter) startPassThrough() (err error) {
 
 func (w *responseWriter) releaseBuffer() {
 	if w.buf == nil {
-		panic("w.buf is nil in call to emptyBuffer")
+		panic("gziphandler: w.buf is nil in call to emptyBuffer")
 	}
 
 	*w.buf = (*w.buf)[:0]
@@ -254,7 +254,7 @@ func (w *responseWriter) handleContentType() bool {
 func (w *responseWriter) Close() error {
 	switch {
 	case w.buf != nil && w.gw != nil:
-		panic("both buf and gw are non nil in call to Close")
+		panic("gziphandler: both buf and gw are non nil in call to Close")
 	// Buffer not nil means the regular response must
 	// be returned.
 	case w.buf != nil:
