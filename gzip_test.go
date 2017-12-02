@@ -537,11 +537,8 @@ func benchmark(b *testing.B, parallel bool, size int) {
 func runBenchmark(b *testing.B, req *http.Request, handler http.Handler) {
 	res := httptest.NewRecorder()
 	handler.ServeHTTP(res, req)
-	if code := res.Code; code != http.StatusOK {
-		b.Fatalf("Expected 200 but got %d", code)
-	} else if blen := res.Body.Len(); blen < 500 {
-		b.Fatalf("Expected complete response body, but got %d bytes", blen)
-	}
+	require.Equal(b, http.StatusOK, res.Code)
+	require.False(b, res.Body.Len() < 500, "Expected complete response body, but got %d bytes", res.Body.Len())
 }
 
 func newTestHandler(body string) http.Handler {
