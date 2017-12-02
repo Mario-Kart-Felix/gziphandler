@@ -126,7 +126,7 @@ func TestGzipHandlerContentLength(t *testing.T) {
 	handler := Gzip(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Length", strconv.Itoa(len(b)))
 		w.Write(b)
-	}))
+	}), CompressionLevel(DefaultCompression))
 
 	srv := httptest.NewServer(handler)
 	defer srv.Close()
@@ -150,7 +150,7 @@ func TestGzipHandlerContentLength(t *testing.T) {
 	require.NoError(t, err, "Unexpected error parsing Content-Length")
 	assert.Len(t, body, l)
 	assert.Equal(t, "gzip", res.Header.Get("Content-Encoding"))
-	assert.NotEqual(t, b, body)
+	assert.Equal(t, gzipStrLevel(testBody, DefaultCompression), body)
 }
 
 func TestGzipHandlerMinSize(t *testing.T) {
@@ -247,7 +247,8 @@ func TestFlushBeforeWrite(t *testing.T) {
 		rw.WriteHeader(http.StatusNotFound)
 		rw.(http.Flusher).Flush()
 		rw.Write(b)
-	}))
+	}), CompressionLevel(DefaultCompression))
+
 	r := httptest.NewRequest(http.MethodGet, "/", nil)
 	r.Header.Set("Accept-Encoding", "gzip")
 	w := httptest.NewRecorder()
@@ -256,7 +257,7 @@ func TestFlushBeforeWrite(t *testing.T) {
 	res := w.Result()
 	assert.Equal(t, http.StatusNotFound, res.StatusCode)
 	assert.Equal(t, "gzip", res.Header.Get("Content-Encoding"))
-	assert.NotEqual(t, b, w.Body.Bytes())
+	assert.Equal(t, gzipStrLevel(testBody, DefaultCompression), w.Body.Bytes())
 }
 
 func TestInferContentType(t *testing.T) {
