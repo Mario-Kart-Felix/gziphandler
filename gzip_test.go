@@ -5,10 +5,8 @@ import (
 	"compress/gzip"
 	"io"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"strconv"
 	"testing"
 
@@ -129,25 +127,16 @@ func TestGzipHandlerContentLength(t *testing.T) {
 		w.Header().Set("Content-Length", strconv.Itoa(len(b)))
 		w.Write(b)
 	}))
-	// httptest.NewRecorder doesn't give you access to the Content-Length
-	// header so instead, we create a server on a random port and make
-	// a request to that instead
-	ln, err := net.Listen("tcp", "127.0.0.1:")
-	require.NoError(t, err, "failed creating listen socket")
-	defer ln.Close()
-	srv := &http.Server{
-		Handler: handler,
-	}
-	go srv.Serve(ln)
 
-	req := &http.Request{
-		Method: http.MethodGet,
-		URL:    &url.URL{Path: "/", Scheme: "http", Host: ln.Addr().String()},
-		Header: make(http.Header),
-		Close:  true,
-	}
+	srv := httptest.NewServer(handler)
+	defer srv.Close()
+
+	req, err := http.NewRequest(http.MethodGet, srv.URL, nil)
+	require.NoError(t, err, "Unexpected error making http request")
+	req.Close = true
 	req.Header.Set("Accept-Encoding", "gzip")
-	res, err := http.DefaultClient.Do(req)
+
+	res, err := srv.Client().Do(req)
 	require.NoError(t, err, "Unexpected error making http request")
 	defer res.Body.Close()
 
