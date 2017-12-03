@@ -624,6 +624,21 @@ func TestClosePanicsInvariant(t *testing.T) {
 	}, "Close did not panic with both gw and buf non-nil")
 }
 
+// we use an int and not a struct{} as the latter is not
+// guaranteed to have a unique address.
+type dummyHTTPHandler int
+
+func (dummyHTTPHandler) ServeHTTP(http.ResponseWriter, *http.Request) {}
+
+func TestWrapper(t *testing.T) {
+	// we need a struct with a unique address for the
+	// assert.Equal comparison.
+	handler := new(dummyHTTPHandler)
+
+	assert.Equal(t, Gzip(handler), Wrapper()(handler))
+	assert.Equal(t, Gzip(handler, MinSize(42)), Wrapper(MinSize(42))(handler))
+}
+
 // --------------------------------------------------------------------
 
 func BenchmarkGzipHandler_S2k(b *testing.B)   { benchmark(b, false, 2048) }
