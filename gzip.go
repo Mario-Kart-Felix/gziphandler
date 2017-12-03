@@ -420,7 +420,7 @@ type Option func(c *config)
 // The default value adds gzip framing but performs no
 // compression.
 func CompressionLevel(level int) Option {
-	if level < gzip.HuffmanOnly || level > gzip.BestCompression {
+	if level < HuffmanOnly || level > BestCompression {
 		panic("gziphandler: invalid compression level requested")
 	}
 
