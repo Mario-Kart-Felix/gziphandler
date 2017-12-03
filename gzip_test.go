@@ -571,6 +571,16 @@ func TestContentTypesMultiWrite(t *testing.T) {
 	assert.Equal(t, testBody+testBody, resp.Body.String())
 }
 
+func TestContentTypesCopies(t *testing.T) {
+	s := []string{"application/example"}
+
+	var c config
+	ContentTypes(s)(&c)
+
+	require.NotEmpty(t, c.contentTypes)
+	assert.False(t, &c.contentTypes[0] == &s[0], "ContentTypes returned same slice")
+}
+
 func TestGzipHandlerAlreadyCompressed(t *testing.T) {
 	handler := Gzip(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Encoding", "br")
