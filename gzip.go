@@ -98,9 +98,7 @@ func (w *responseWriter) Write(b []byte) (int, error) {
 		return w.ResponseWriter.Write(b)
 	}
 
-	if w.code == 0 {
-		w.code = http.StatusOK
-	}
+	w.WriteHeader(http.StatusOK)
 
 	// This may succeed if the Content-Type header was
 	// explicitly set.
@@ -283,9 +281,7 @@ func (w *responseWriter) closeGzipped() error {
 func (w *responseWriter) closeNonGzipped() error {
 	w.inferContentType(nil)
 
-	if w.code == 0 {
-		w.code = http.StatusOK
-	}
+	w.WriteHeader(http.StatusOK)
 
 	return w.startPassThrough()
 }
