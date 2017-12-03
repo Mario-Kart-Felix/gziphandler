@@ -147,13 +147,13 @@ func (w *responseWriter) startGzip() (err error) {
 	h := w.Header()
 
 	// Set the GZIP header.
-	h["Content-Encoding"] = []string{"gzip"}
+	h.Set("Content-Encoding", "gzip")
 
 	// if the Content-Length is already set, then calls
 	// to Write on gzip will fail to set the
 	// Content-Length header since its already set
 	// See: https://github.com/golang/go/issues/14975.
-	delete(h, "Content-Length")
+	h.Del("Content-Length")
 
 	// Write the header to gzip response.
 	w.ResponseWriter.WriteHeader(w.code)
@@ -218,7 +218,7 @@ func (w *responseWriter) inferContentType(b []byte) {
 	}
 
 	// It infer it from the uncompressed body.
-	h["Content-Type"] = []string{http.DetectContentType(b)}
+	h.Set("Content-Type", http.DetectContentType(b))
 }
 
 func (w *responseWriter) shouldPassThrough() bool {
@@ -324,8 +324,7 @@ func (h *handler) pool() *sync.Pool {
 }
 
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	hdr := w.Header()
-	hdr["Vary"] = append(hdr["Vary"], "Accept-Encoding")
+	w.Header().Add("Vary", "Accept-Encoding")
 
 	var acceptsGzip bool
 	for _, spec := range header.ParseAccept(r.Header, "Accept-Encoding") {
