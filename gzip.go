@@ -110,14 +110,11 @@ func (w *responseWriter) Write(b []byte) (int, error) {
 		return w.ResponseWriter.Write(b)
 	}
 
-	// If the global writes are bigger than the minSize,
-	// compression may be enabled.
-	if buf := *w.buf; len(buf)+len(b) < w.h.minSize {
-		// Save the write into a buffer for later
-		// use in GZIP responseWriter (if content
-		// is long enough) or at close with regular
-		// responseWriter.
-		*w.buf = append(buf, b...)
+	if w.shouldBuffer(b) {
+		// Save the write into a buffer for later.
+		// This buffer will either be flushed in
+		// either startGzip or startPassThrough.
+		*w.buf = append(*w.buf, b...)
 		return len(b), nil
 	}
 
@@ -190,6 +187,14 @@ func (w *responseWriter) releaseBuffer() {
 	*w.buf = (*w.buf)[:0]
 	bufferPool.Put(w.buf)
 	w.buf = nil
+}
+
+func (w *responseWriter) shouldBuffer(b []byte) bool {
+	// If the all writes to date are bigger than the
+	// minSize, we no longer need to buffer and we can
+	// decide whether to enable compression or whether
+	// to operate in pass through mode.
+	return len(*w.buf)+len(b) < w.h.minSize
 }
 
 func (w *responseWriter) inferContentType(b []byte) {
