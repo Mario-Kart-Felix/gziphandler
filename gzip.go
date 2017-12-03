@@ -323,18 +323,20 @@ func (h *handler) pool() *sync.Pool {
 	return gzipPool[gzipPoolIndex(h.level)]
 }
 
-func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Vary", "Accept-Encoding")
-
-	var acceptsGzip bool
+func (*handler) shouldGzip(r *http.Request) bool {
 	for _, spec := range header.ParseAccept(r.Header, "Accept-Encoding") {
 		if spec.Value == "gzip" && spec.Q > 0 {
-			acceptsGzip = true
-			break
+			return true
 		}
 	}
 
-	if !acceptsGzip {
+	return false
+}
+
+func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Vary", "Accept-Encoding")
+
+	if !h.shouldGzip(r) {
 		h.h.ServeHTTP(w, r)
 		return
 	}
