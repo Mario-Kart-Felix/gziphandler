@@ -394,6 +394,16 @@ func Gzip(h http.Handler, opts ...Option) http.Handler {
 	return gzh
 }
 
+// Wrapper returns a wrapper function (often known as
+// middleware) which can be used to wrap an HTTP handler,
+// to transparently gzip the response body if the client
+// supports it (via the the Accept-Encoding header).
+func Wrapper(opts ...Option) func(http.Handler) http.Handler {
+	return func(h http.Handler) http.Handler {
+		return Gzip(h, opts...)
+	}
+}
+
 type config struct {
 	level        int
 	minSize      int
