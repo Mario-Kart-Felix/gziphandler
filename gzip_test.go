@@ -61,15 +61,11 @@ func TestGzipHandler(t *testing.T) {
 }
 
 func TestGzipLevelHandler(t *testing.T) {
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		io.WriteString(w, testBody)
-	})
-
 	for lvl := gzip.BestSpeed; lvl <= gzip.BestCompression; lvl++ {
 		req := httptest.NewRequest(http.MethodGet, "/whatever", nil)
 		req.Header.Set("Accept-Encoding", "gzip")
 		resp := httptest.NewRecorder()
-		Gzip(handler, CompressionLevel(lvl)).ServeHTTP(resp, req)
+		newTestHandler(testBody, CompressionLevel(lvl)).ServeHTTP(resp, req)
 		res := resp.Result()
 
 		assert.Equal(t, http.StatusOK, res.StatusCode)
@@ -688,8 +684,8 @@ func runBenchmark(b *testing.B, req *http.Request, handler http.Handler) {
 	require.False(b, res.Body.Len() < 500, "Expected complete response body, but got %d bytes", res.Body.Len())
 }
 
-func newTestHandler(body string) http.Handler {
+func newTestHandler(body string, opts ...Option) http.Handler {
 	return Gzip(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, body)
-	}))
+	}), opts...)
 }
