@@ -49,15 +49,6 @@ func TestGzipHandler(t *testing.T) {
 	assert.Equal(t, "gzip", res2.Header.Get("Content-Encoding"))
 	assert.Equal(t, "Accept-Encoding", res2.Header.Get("Vary"))
 	assert.Equal(t, gzipStrLevel(testBody, DefaultCompression), resp2.Body.Bytes())
-
-	// content-type header is correctly set based on uncompressed body
-
-	req3 := httptest.NewRequest(http.MethodGet, "/whatever", nil)
-	req3.Header.Set("Accept-Encoding", "gzip")
-	res3 := httptest.NewRecorder()
-	handler.ServeHTTP(res3, req3)
-
-	assert.Equal(t, http.DetectContentType([]byte(testBody)), res3.Header().Get("Content-Type"))
 }
 
 func TestGzipLevelHandler(t *testing.T) {
