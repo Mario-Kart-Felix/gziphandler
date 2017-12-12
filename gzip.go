@@ -1,3 +1,6 @@
+// Package gziphandler is a tiny Go package which wraps
+// HTTP handlers to transparently gzip the response body,
+// for clients which support it.
 package gziphandler
 
 import (
