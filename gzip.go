@@ -327,7 +327,11 @@ func (h *handler) pool() *sync.Pool {
 	return gzipPool[gzipPoolIndex(h.level)]
 }
 
-func (*handler) shouldGzip(r *http.Request) bool {
+func (h *handler) shouldGzip(r *http.Request) bool {
+	if h.forceGzip {
+		return true
+	}
+
 	for _, spec := range header.ParseAccept(r.Header, "Accept-Encoding") {
 		if spec.Value == "gzip" && spec.Q > 0 {
 			return true
@@ -413,6 +417,7 @@ type config struct {
 	level        int
 	minSize      int
 	contentTypes []string
+	forceGzip    bool
 }
 
 // Option customizes the behaviour of the gzip handler.
@@ -473,6 +478,18 @@ func ContentTypes(types []string) Option {
 	return func(c *config) {
 		c.contentTypes = types
 	}
+}
+
+// ForceGzip makes the handler to always return a gzipped
+// response and not consult the request's Accept-Encoding
+// header.
+//
+// By default, responses are only gzipped if the request's
+// Accept-Encoding header indicates gzip support.
+var ForceGzip Option = forceGzip
+
+func forceGzip(c *config) {
+	c.forceGzip = true
 }
 
 type (

@@ -626,6 +626,20 @@ func TestWrapper(t *testing.T) {
 	assert.Equal(t, Gzip(handler, MinSize(42)), Wrapper(MinSize(42))(handler))
 }
 
+func TestForceGzip(t *testing.T) {
+	handler := newTestHandler(testBody, ForceGzip)
+
+	req := httptest.NewRequest(http.MethodGet, "/whatever", nil)
+	resp := httptest.NewRecorder()
+	handler.ServeHTTP(resp, req)
+
+	res := resp.Result()
+	assert.Equal(t, http.StatusOK, res.StatusCode)
+	assert.Equal(t, "gzip", res.Header.Get("Content-Encoding"))
+	assert.Equal(t, "Accept-Encoding", res.Header.Get("Vary"))
+	assert.Equal(t, gzipStrLevel(testBody, DefaultCompression), resp.Body.Bytes())
+}
+
 // --------------------------------------------------------------------
 
 func BenchmarkGzipHandler_S2k(b *testing.B)   { benchmark(b, false, 2048) }
