@@ -319,6 +319,45 @@ func TestInferContentTypeUncompressed(t *testing.T) {
 	assert.Equal(t, "text/html; charset=utf-8", res1.Header.Get("Content-Type"))
 }
 
+func TestInferContentTypeBuffered(t *testing.T) {
+	var buf bytes.Buffer
+	buf.WriteString("<!doctype html>")
+
+	for i := len("<!doctype html>"); i < 512; i++ {
+		buf.WriteByte('.')
+	}
+
+	require.Len(t, buf.Bytes(), 512, "invariant")
+
+	handler := Gzip(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write(buf.Bytes())
+		io.WriteString(w, "test")
+	}), MinSize(513))
+
+	req := httptest.NewRequest(http.MethodGet, "/whatever", nil)
+	req.Header.Add("Accept-Encoding", "gzip")
+	resp := httptest.NewRecorder()
+	handler.ServeHTTP(resp, req)
+
+	res := resp.Result()
+	assert.Equal(t, "text/html; charset=utf-8", res.Header.Get("Content-Type"))
+
+	buf.Truncate(511)
+
+	handler = Gzip(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write(buf.Bytes())
+		io.WriteString(w, "test")
+	}), MinSize(512))
+
+	req = httptest.NewRequest(http.MethodGet, "/whatever", nil)
+	req.Header.Add("Accept-Encoding", "gzip")
+	resp = httptest.NewRecorder()
+	handler.ServeHTTP(resp, req)
+
+	res = resp.Result()
+	assert.Equal(t, "text/html; charset=utf-8", res.Header.Get("Content-Type"))
+}
+
 type httpCloseNotifierFunc func() <-chan bool
 
 func (fn httpCloseNotifierFunc) CloseNotify() <-chan bool { return fn() }
