@@ -51,6 +51,22 @@ func TestGzipHandler(t *testing.T) {
 	assert.Equal(t, gzipStrLevel(testBody, DefaultCompression), resp2.Body.Bytes())
 }
 
+func TestGzipHandlerAcceptEncodingCaseInsensitive(t *testing.T) {
+	// This just exists to provide something for GzipHandler to wrap.
+	handler := newTestHandler(testBody)
+
+	req := httptest.NewRequest(http.MethodGet, "/whatever", nil)
+	req.Header.Set("Accept-Encoding", "GZIP")
+	resp := httptest.NewRecorder()
+	handler.ServeHTTP(resp, req)
+	res := resp.Result()
+
+	assert.Equal(t, http.StatusOK, res.StatusCode)
+	assert.Equal(t, "gzip", res.Header.Get("Content-Encoding"))
+	assert.Equal(t, "Accept-Encoding", res.Header.Get("Vary"))
+	assert.Equal(t, gzipStrLevel(testBody, DefaultCompression), resp.Body.Bytes())
+}
+
 func TestGzipLevelHandler(t *testing.T) {
 	for lvl := BestSpeed; lvl <= BestCompression; lvl++ {
 		req := httptest.NewRequest(http.MethodGet, "/whatever", nil)

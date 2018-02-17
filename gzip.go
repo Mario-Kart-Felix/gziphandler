@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/golang/gddo/httputil/header"
 	"github.com/tmthrgd/httputils"
 )
 
@@ -332,13 +331,8 @@ func (h *handler) shouldGzip(r *http.Request) bool {
 		return true
 	}
 
-	for _, spec := range header.ParseAccept(r.Header, "Accept-Encoding") {
-		if spec.Value == "gzip" && spec.Q > 0 {
-			return true
-		}
-	}
-
-	return false
+	match := httputils.Negotiate(r.Header, "Accept-Encoding", "gzip")
+	return match == "gzip"
 }
 
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
