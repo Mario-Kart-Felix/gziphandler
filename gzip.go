@@ -480,6 +480,9 @@ func ContentTypes(types []string) Option {
 //
 // By default, responses are only gzipped if the request's
 // Accept-Encoding header indicates gzip support.
+//
+// Note: ForceGzip does not affect MinSize or ContentTypes,
+// it simply ignores the Accept-Encoding header.
 var ForceGzip Option = forceGzip
 
 func forceGzip(c *config) {
