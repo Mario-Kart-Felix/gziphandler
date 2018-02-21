@@ -14,7 +14,7 @@ const (
 	DefaultQValue = 1.0
 
 	// DefaultMinSize defines the minimum size to reach to enable compression.
-	// It's 512 bytes.
+	// It's 1400 bytes.
 	//
 	// Deprecated: maintained for compatibility.
 	DefaultMinSize = defaultMinSize

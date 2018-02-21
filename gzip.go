@@ -13,7 +13,15 @@ import (
 	"github.com/tmthrgd/httputils"
 )
 
-const defaultMinSize = 512
+// 1500 bytes is the MTU size for the internet since that is
+// the largest size allowed at the network layer. If you
+// take a file that is 1300 bytes and compress it to 800
+// bytes, it is still transmitted in that same 1500 byte
+// packet regardless, so you’ve gained nothing. That being
+// the case, you should restrict the gzip compression to
+// files with a size greater than a single packet, 1400
+// bytes is a safe value.
+const defaultMinSize = 1400
 
 var bufferPool = &sync.Pool{
 	New: func() interface{} {
@@ -438,7 +446,7 @@ func CompressionLevel(level int) Option {
 //
 // If size is zero, all responses will be compressed.
 //
-// The default minimum size is 512 bytes.
+// The default minimum size is 1400 bytes.
 func MinSize(size int) Option {
 	if size < 0 {
 		panic("gziphandler: minimum size must not be negative")
