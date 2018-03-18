@@ -482,7 +482,7 @@ func ContentTypes(types []string) Option {
 	}
 }
 
-// ForceGzip makes the handler to always return a gzipped
+// ForceGzip makes the handler always return a gzipped
 // response and not consult the request's Accept-Encoding
 // header.
 //
