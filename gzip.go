@@ -122,8 +122,8 @@ func (w *responseWriter) Write(b []byte) (int, error) {
 
 	if w.shouldBuffer(b) {
 		// Save the write into a buffer for later.
-		// This buffer will either be flushed in
-		// either startGzip or startPassThrough.
+		// This buffer will be flushed in either
+		// startGzip or startPassThrough.
 		*w.buf = append(*w.buf, b...)
 		return len(b), nil
 	}
