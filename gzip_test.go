@@ -681,18 +681,43 @@ func TestWrapper(t *testing.T) {
 	assert.Equal(t, Gzip(handler, MinSize(42)), Wrapper(MinSize(42))(handler))
 }
 
-func TestForceGzip(t *testing.T) {
-	handler := newTestHandler(testBody, ForceGzip)
+func TestShouldGzip(t *testing.T) {
+	for _, tc := range []struct {
+		shouldGzip ShouldGzipType
+		advertise  bool
+		expect     bool
+	}{
+		{NegotiateGzip, false, false},
+		{NegotiateGzip, true, true},
+		{SkipGzip, false, false},
+		{SkipGzip, true, false},
+		{ForceGzip, false, true},
+		{ForceGzip, true, true},
+	} {
+		handler := newTestHandler(testBody, ShouldGzip(func(*http.Request) ShouldGzipType {
+			return tc.shouldGzip
+		}))
 
-	req := httptest.NewRequest(http.MethodGet, "/whatever", nil)
-	resp := httptest.NewRecorder()
-	handler.ServeHTTP(resp, req)
+		req := httptest.NewRequest(http.MethodGet, "/whatever", nil)
+		if tc.advertise {
+			req.Header.Set("Accept-Encoding", "gzip")
+		}
 
-	res := resp.Result()
-	assert.Equal(t, http.StatusOK, res.StatusCode)
-	assert.Equal(t, "gzip", res.Header.Get("Content-Encoding"))
-	assert.Equal(t, "Accept-Encoding", res.Header.Get("Vary"))
-	assert.Equal(t, gzipStrLevel(testBody, DefaultCompression), resp.Body.Bytes())
+		resp := httptest.NewRecorder()
+		handler.ServeHTTP(resp, req)
+
+		res := resp.Result()
+		assert.Equal(t, http.StatusOK, res.StatusCode, "%+v", tc)
+		assert.Equal(t, "Accept-Encoding", res.Header.Get("Vary"), "%+v", tc)
+
+		if tc.expect {
+			assert.Equal(t, "gzip", res.Header.Get("Content-Encoding"), "%+v", tc)
+			assert.Equal(t, gzipStrLevel(testBody, DefaultCompression), resp.Body.Bytes(), "%+v", tc)
+		} else {
+			assert.Equal(t, "", res.Header.Get("Content-Encoding"), "%+v", tc)
+			assert.Equal(t, testBody, resp.Body.String(), "%+v", tc)
+		}
+	}
 }
 
 // --------------------------------------------------------------------

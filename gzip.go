@@ -335,8 +335,14 @@ func (h *handler) pool() *sync.Pool {
 }
 
 func (h *handler) shouldGzip(r *http.Request) bool {
-	if h.forceGzip {
-		return true
+	if h.config.shouldGzip != nil {
+		switch h.config.shouldGzip(r) {
+		case NegotiateGzip:
+		case SkipGzip:
+			return false
+		case ForceGzip:
+			return true
+		}
 	}
 
 	match := httputils.Negotiate(r.Header, "Accept-Encoding", "gzip")
@@ -419,7 +425,7 @@ type config struct {
 	level        int
 	minSize      int
 	contentTypes []string
-	forceGzip    bool
+	shouldGzip   func(*http.Request) ShouldGzipType
 }
 
 // Option customizes the behaviour of the gzip handler.
@@ -482,20 +488,39 @@ func ContentTypes(types []string) Option {
 	}
 }
 
-// ForceGzip makes the handler always return a gzipped
-// response and not consult the request's Accept-Encoding
+// ShouldGzip provides control over when the handler should
+// return a gzipped response. It allows handlers to implement
+// logic that doesn't consult the request's Accept-Encoding
 // header.
 //
 // By default, responses are only gzipped if the request's
 // Accept-Encoding header indicates gzip support.
 //
-// Note: ForceGzip does not affect MinSize or ContentTypes,
-// it simply ignores the Accept-Encoding header.
-var ForceGzip Option = forceGzip
-
-func forceGzip(c *config) {
-	c.forceGzip = true
+// Note: ShouldGzip does not affect MinSize or ContentTypes,
+// it simply provides control over negotiating gzip support.
+func ShouldGzip(fn func(*http.Request) ShouldGzipType) Option {
+	return func(c *config) {
+		c.shouldGzip = fn
+	}
 }
+
+// ShouldGzipType controls how the handler determines gzip
+// support.
+type ShouldGzipType int
+
+const (
+	// NegotiateGzip defers gzip negotiation to the
+	// request's Accept-Encoding header.
+	NegotiateGzip ShouldGzipType = iota
+
+	// SkipGzip skips gzipping the response.
+	SkipGzip
+
+	// ForceGzip ignores the request's Accept-Encoding
+	// header and always gzips the response.
+	// (See ShouldGzip note).
+	ForceGzip
+)
 
 type (
 	// Each of these structs is intentionally small (1 pointer wide) so
