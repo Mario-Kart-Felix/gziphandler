@@ -646,22 +646,18 @@ func TestReleaseBufferPanicsInvaraiant(t *testing.T) {
 
 func TestWritePanicsInvariant(t *testing.T) {
 	assert.PanicsWithValue(t, "gziphandler: both buf and gw are non nil in call to Write", func() {
-		var gw gzip.Writer
-		var buf []byte
 		(&responseWriter{
-			gw:  &gw,
-			buf: &buf,
+			gw:  new(gzip.Writer),
+			buf: new([]byte),
 		}).Write(nil)
 	}, "Write did not panic with both gw and buf non-nil")
 }
 
 func TestClosePanicsInvariant(t *testing.T) {
 	assert.PanicsWithValue(t, "gziphandler: both buf and gw are non nil in call to Close", func() {
-		var gw gzip.Writer
-		var buf []byte
 		(&responseWriter{
-			gw:  &gw,
-			buf: &buf,
+			gw:  new(gzip.Writer),
+			buf: new([]byte),
 		}).Close()
 	}, "Close did not panic with both gw and buf non-nil")
 }
