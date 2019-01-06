@@ -195,9 +195,6 @@ func TestMinSizePanicsForInvalid(t *testing.T) {
 }
 
 func TestGzipDoubleClose(t *testing.T) {
-	addGzipPool(DefaultCompression)
-	pool := gzipPool[gzipPoolIndex(DefaultCompression)]
-
 	h := Gzip(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// call close here and it'll get called again interally by
 		// NewGzipLevelHandler's handler defer
@@ -212,8 +209,8 @@ func TestGzipDoubleClose(t *testing.T) {
 
 	// the second close shouldn't have added the same writer
 	// so we pull out 2 writers from the pool and make sure they're different
-	w1 := pool.Get()
-	w2 := pool.Get()
+	w1 := gzipWriterGet(nil, DefaultCompression)
+	w2 := gzipWriterGet(nil, DefaultCompression)
 	// assert.NotEqual looks at the value and not the address, so we use regular ==
 	assert.False(t, w1 == w2)
 }
