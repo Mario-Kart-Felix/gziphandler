@@ -14,15 +14,40 @@ import (
 	"github.com/tmthrgd/httputils"
 )
 
-// 1500 bytes is the MTU size for the internet since that is
-// the largest size allowed at the network layer. If you
-// take a file that is 1300 bytes and compress it to 800
-// bytes, it is still transmitted in that same 1500 byte
-// packet regardless, so you’ve gained nothing. That being
-// the case, you should restrict the gzip compression to
-// files with a size greater than a single packet, 1400
-// bytes is a safe value.
-const defaultMinSize = 1400
+// DefaultMinSize is the default minimum size for which we enable gzip compression.
+//
+// This is provided for two main reasons:
+//
+// - Compressing very small payloads (less than a few hundred bytes) may actual
+//   increase their size. GZIP framing imposes 18 bytes on top of the DEFLATE data
+//   which itself has framing and overhead even when storing non-compressed data.
+//
+// - Compressing small payloads may actually decrease end-to-end performance due to
+//   the additional latency imposed by compressing and decompressing the payload, as
+//   well as due to the contention on compute resources that may be otherwise used
+//   for other purposes (e.g. decoding other payloads), not being offset by a
+//   decrease in data transfer.
+//
+// As it should be clear given the above two points the optimal default minimum size
+// depends on many factors, including the compute resources available for
+// compression and decompression, network latency and bandwidth, the nature of the
+// payload, traffic patterns, etc.
+//
+// These are the defaults/suggested values by different sources: nginx, 20 bytes;
+// apache/mod_gzip, 500 bytes; apache/pagespeed, 0 bytes. In the past, google
+// recommended 150 bytes and akamai 860 bytes, but both of these recommendations
+// seem to have disappeared from their current documentation.
+//
+// Previously a value of "slightly less than 1 MTU" was used, but many networks do
+// not have "MTU-sized reserved slots" that can be exclusively used by a single
+// packet at a time nor does this accurately account for protocol overhead.
+// Furthermore, there are precious few guarantees about MTUs on the internet and
+// "MTUs are 1500 bytes" is definitely not one of them.
+//
+// For all the reasons outlined above, defaultMinSize is set to the previous Google
+// recommendation. This may change in the future in case new data suggests a better
+// default.
+const defaultMinSize = 150
 
 var bufferPool = &sync.Pool{
 	New: func() interface{} {
@@ -443,7 +468,7 @@ func CompressionLevel(level int) Option {
 //
 // If size is zero, all responses will be compressed.
 //
-// The default minimum size is 1400 bytes.
+// The default minimum size is 150 bytes.
 func MinSize(size int) Option {
 	if size < 0 {
 		panic("gziphandler: minimum size must not be negative")
